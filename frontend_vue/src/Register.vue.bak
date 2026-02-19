@@ -1,0 +1,177 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const email = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+
+const isEmailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value))
+const isPasswordMatch = computed(
+	() => password.value.trim() !== '' && confirmPassword.value.trim() !== '' && password.value === confirmPassword.value
+)
+const canRegister = computed(() => isEmailValid.value && isPasswordMatch.value)
+
+const goHome = () => {
+	router.push('/')
+}
+</script>
+
+<template>
+	<div class="register-page">
+		<div class="register-overlay">
+			<div class="register-modal" @click.stop>
+				<button class="register-close" @click="goHome">×</button>
+				<div class="register-brand">miHoYo</div>
+				<div class="register-sub-brand">TECH OTAKUS SAVE THE WORLD</div>
+				<h3 class="register-title">邮箱注册</h3>
+
+				<input v-model="email" class="register-input" type="email" placeholder="请输入邮箱" />
+				<input v-model="password" class="register-input" type="password" placeholder="请输入密码" />
+				<input
+					v-model="confirmPassword"
+					class="register-input"
+					type="password"
+					placeholder="请确认密码"
+				/>
+
+				<p v-if="email && !isEmailValid" class="register-tip">请输入正确的邮箱格式</p>
+				<p v-else-if="confirmPassword && !isPasswordMatch" class="register-tip">两次输入的密码不一致</p>
+
+				<button class="register-btn" :disabled="!canRegister">注册</button>
+
+				<div class="register-footer">
+					<a href="#" @click.prevent="goHome">返回登录</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+
+<style scoped>
+* {
+	box-sizing: border-box;
+}
+
+.register-page {
+	min-height: 100vh;
+	background: #eff1f5;
+}
+
+.register-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(17, 20, 29, 0.62);
+	display: grid;
+	place-items: center;
+	padding: 16px;
+}
+
+.register-modal {
+	position: relative;
+	width: 100%;
+	max-width: 365px;
+	background: #fff;
+	border-radius: 12px;
+	padding: 28px 30px 22px;
+	box-shadow: 0 18px 48px rgba(10, 15, 35, 0.28);
+}
+
+.register-close {
+	position: absolute;
+	right: 12px;
+	top: 10px;
+	border: none;
+	background: transparent;
+	font-size: 24px;
+	line-height: 1;
+	color: #b3b8c4;
+	cursor: pointer;
+}
+
+.register-brand {
+	text-align: center;
+	font-size: 42px;
+	line-height: 1;
+	font-weight: 800;
+	letter-spacing: 1px;
+	color: #53c4ff;
+	margin-top: 4px;
+}
+
+.register-sub-brand {
+	text-align: center;
+	font-size: 9px;
+	color: #9dc5df;
+	letter-spacing: 1.2px;
+	margin-top: 2px;
+	margin-bottom: 18px;
+}
+
+.register-title {
+	margin: 0 0 18px;
+	text-align: center;
+	font-size: 24px;
+	font-weight: 700;
+	color: #222c3f;
+}
+
+.register-input {
+	width: 100%;
+	height: 44px;
+	border: 1px solid #e3e7ef;
+	border-radius: 8px;
+	padding: 0 12px;
+	font-size: 14px;
+	outline: none;
+	margin-bottom: 10px;
+	background: #fafbfd;
+}
+
+.register-input:focus {
+	border-color: #8bc4ff;
+	background: #fff;
+}
+
+.register-tip {
+	margin: -2px 0 10px;
+	font-size: 12px;
+	color: #f56c6c;
+}
+
+.register-btn {
+	margin-top: 8px;
+	width: 100%;
+	height: 44px;
+	border: none;
+	border-radius: 8px;
+	font-size: 16px;
+	font-weight: 700;
+	background: #d8dce4;
+	color: #8f97a8;
+	cursor: pointer;
+}
+
+.register-btn:disabled {
+	cursor: not-allowed;
+}
+
+.register-btn:not(:disabled) {
+	background: linear-gradient(180deg, #42c8ff, #17a7f6);
+	color: #fff;
+}
+
+.register-footer {
+	margin-top: 16px;
+	display: flex;
+	justify-content: center;
+	font-size: 14px;
+}
+
+.register-footer a {
+	color: #57a7ee;
+	text-decoration: none;
+}
+</style>
