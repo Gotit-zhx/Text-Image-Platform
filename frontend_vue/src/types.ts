@@ -67,6 +67,12 @@ export type UserTestData = {
 	favoritePostIds: number[]
 }
 
+export type InteractionTestData = {
+	likedPostIds: number[]
+	favoritedPostIds: number[]
+	followedAuthorIds: number[]
+}
+
 export type ProfileEditPayload = {
 	avatarUrl?: string
 	name: string

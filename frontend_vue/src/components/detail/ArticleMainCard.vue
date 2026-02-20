@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import DOMPurify from 'dompurify'
 import type { Post } from '../../types'
 
-defineProps<{
+const props = defineProps<{
 	post: Post
 }>()
 
@@ -20,6 +22,14 @@ const getImageStyle = (image: string) => {
 		backgroundPosition: 'center'
 	}
 }
+
+const sanitizedContentHtml = computed(() =>
+	DOMPurify.sanitize(props.post.contentHtml || '', {
+		USE_PROFILES: { html: true },
+		FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+		FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus']
+	})
+)
 </script>
 
 <template>
@@ -47,7 +57,7 @@ const getImageStyle = (image: string) => {
 			<div v-for="(image, idx) in post.images" :key="`${post.id}-${idx}`" class="img" :style="getImageStyle(image)" />
 		</div>
 
-		<div v-if="post.contentHtml" class="content-html" v-html="post.contentHtml"></div>
+		<div v-if="post.contentHtml" class="content-html" v-html="sanitizedContentHtml"></div>
 		<p v-else class="summary">{{ post.summary }}</p>
 
 		<div v-if="post.tags.length" class="tags">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AppTopBar from './components/AppTopBar.vue'
 import HomeContent from './components/HomeContent.vue'
 import ProfileContent from './components/ProfileContent.vue'
@@ -7,159 +8,146 @@ import PublishPostContent from './components/PublishPostContent.vue'
 import ArticleDetailContent from './components/ArticleDetailContent.vue'
 import LoginModal from './components/LoginModal.vue'
 import RegisterModal from './components/RegisterModal.vue'
+import { DEFAULT_COMMUNITY_STATS, searchPostsApi } from './api/community'
+import { useAuthState } from './composables/useAuthState'
+import { useCommunityState } from './composables/useCommunityState'
 import type {
-	CommentRecord,
 	LoginUser,
 	PasswordChangePayload,
 	Post,
 	ProfileEditPayload,
 	PublishPayload,
-	UserSimpleProfile,
 	UserCommentRecord,
-	UserTestData
+	UserSimpleProfile
 } from './types'
 
 const navItems = ['推荐', '热门', '更新', '关注']
 const quickActions = ['发布图文']
 
-const showLoginModal = ref(false)
-const showRegisterModal = ref(false)
-const currentPage = ref<'home' | 'profile' | 'publish' | 'edit' | 'detail'>('home')
-const currentPostId = ref<number | null>(null)
-const editingPostId = ref<number | null>(null)
-const detailCommentFocusToken = ref(0)
-const activeProfileMenu = ref(0)
-const account = ref('')
-const password = ref('')
-const registerEmail = ref('')
-const registerPassword = ref('')
-const registerConfirmPassword = ref('')
+const router = useRouter()
+const route = useRoute()
+
+const currentPage = computed<'home' | 'profile' | 'publish' | 'edit' | 'detail'>(() => {
+	if (
+		route.name === 'home' ||
+		route.name === 'profile' ||
+		route.name === 'publish' ||
+		route.name === 'edit' ||
+		route.name === 'detail'
+	) {
+		return route.name
+	}
+	return 'home'
+})
+
+const currentPostId = computed<number | null>(() => {
+	if (route.name !== 'detail') return null
+	const raw = Number(route.params.id)
+	return Number.isFinite(raw) ? raw : null
+})
+
+const editingPostId = computed<number | null>(() => {
+	if (route.name !== 'edit') return null
+	const raw = Number(route.params.id)
+	return Number.isFinite(raw) ? raw : null
+})
+
+const detailCommentFocusToken = computed(() => {
+	if (route.name !== 'detail') return 0
+	const raw = Number(route.query.focusTs ?? 0)
+	return Number.isFinite(raw) ? raw : 0
+})
+
+const activeProfileMenu = computed(() => {
+	if (route.name !== 'profile') return 0
+	const raw = Number(route.query.menu ?? 0)
+	return Number.isFinite(raw) && raw >= 0 ? raw : 0
+})
 const searchKeyword = ref('')
-const activeNav = ref('推荐')
-const userPassword = ref('123456')
-const loginUser = ref<LoginUser | null>(null)
+
+const activeNav = computed(() => {
+	const navQuery = String(route.query.nav || '推荐')
+	return navItems.includes(navQuery) ? navQuery : '推荐'
+})
+
 const viewedProfileUser = ref<LoginUser | null>(null)
+const serverSearchPosts = ref<Post[] | null>(null)
+const searchRequestId = ref(0)
 
-const userTestData = ref<UserTestData>({
-	fans: [
-		{ id: 3001, name: '青杉', avatarText: '青' },
-		{ id: 3002, name: '夜航船', avatarText: '夜' },
-		{ id: 3003, name: '半格信号', avatarText: '半' },
-		{ id: 3004, name: '云上邮差', avatarText: '云' }
-	],
-	followings: [
-		{ id: 4001, name: '镜头漫游者', avatarText: '镜' },
-		{ id: 4002, name: '纸页慢生活', avatarText: '纸' },
-		{ id: 4003, name: '山野日志', avatarText: '山' }
-	],
-	comments: [
-		{
-			id: 7001,
-			postId: 101,
-			postTitle: '城市夜景拍摄记录｜一条街拍到天亮',
-			content: '这组光影对比太舒服了，最后一张构图很稳。',
-			date: '02-20',
-			likes: 32
-		},
-		{
-			id: 7002,
-			postId: 102,
-			postTitle: '手账排版合集｜一周模板分享',
-			content: '模板很实用，已经按你的思路做了我的周计划。',
-			date: '02-19',
-			likes: 15
-		},
-		{
-			id: 7003,
-			postId: 103,
-			postTitle: '三天两晚徒步路线复盘',
-			content: '补给点信息很关键，感谢整理。',
-			date: '02-18',
-			likes: 8
-		}
-	],
-	favoritePostIds: [102, 104]
+const {
+	showLoginModal,
+	showRegisterModal,
+	account,
+	password,
+	registerEmail,
+	registerPassword,
+	registerConfirmPassword,
+	userPassword,
+	loginUser,
+	canLogin,
+	isLoggedIn,
+	isRegisterEmailValid,
+	isRegisterPasswordMatch,
+	canRegister,
+	openLoginModal,
+	closeLoginModal,
+	openRegisterModal,
+	closeRegisterModal,
+	backToLogin,
+	mockLogin,
+	mockRegister,
+	mockLogout
+} = useAuthState({
+	getUserStats: () => ({ ...DEFAULT_COMMUNITY_STATS })
 })
 
-const interactionTestData = ref({
-	likedPostIds: [101, 103],
-	favoritedPostIds: [...userTestData.value.favoritePostIds],
-	followedAuthorIds: [201, 203]
+const {
+	userTestData,
+	interactionTestData,
+	posts,
+	comments,
+	togglePostLike: togglePostLikeAction,
+	togglePostFavorite: togglePostFavoriteAction,
+	togglePostFollow: togglePostFollowAction,
+	submitComment: submitCommentAction,
+	toggleCommentLike: toggleCommentLikeAction,
+	deleteComment: deleteCommentAction,
+	toggleFollowingUser: toggleFollowingUserAction,
+	toggleFanFollow: toggleFanFollowAction,
+	toggleProfileFollow: toggleProfileFollowAction,
+	publishPost,
+	saveEditedPost,
+	saveProfile,
+	changePassword
+} = useCommunityState({
+	loginUser,
+	isLoggedIn,
+	openLoginModal,
+	viewedProfileUser,
+	userPassword
 })
-
-const canLogin = computed(() => account.value.trim() !== '' && password.value.trim() !== '')
-const isLoggedIn = computed(() => !!loginUser.value)
-const isRegisterEmailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerEmail.value))
-const isRegisterPasswordMatch = computed(
-	() =>
-		registerPassword.value.trim() !== '' &&
-		registerConfirmPassword.value.trim() !== '' &&
-		registerPassword.value === registerConfirmPassword.value
-)
-const canRegister = computed(() => isRegisterEmailValid.value && isRegisterPasswordMatch.value)
 
 const normalizedSearchKeyword = computed(() => searchKeyword.value.trim().toLowerCase())
 
 const handleSelectNav = (nav: string) => {
-	activeNav.value = nav
-	currentPage.value = 'home'
+	router.push({
+		name: 'home',
+		query: {
+			nav,
+			...(searchKeyword.value.trim() ? { q: searchKeyword.value.trim() } : {})
+		}
+	})
 }
 
-const openLoginModal = () => {
-	if (isLoggedIn.value) return
-	showLoginModal.value = true
-	showRegisterModal.value = false
-}
-
-const closeLoginModal = () => {
-	showLoginModal.value = false
-}
-
-const openRegisterModal = () => {
-	showLoginModal.value = false
-	showRegisterModal.value = true
-}
-
-const closeRegisterModal = () => {
-	showRegisterModal.value = false
-}
-
-const backToLogin = () => {
-	showRegisterModal.value = false
-	showLoginModal.value = true
-}
-
-const mockLogin = () => {
-	if (!canLogin.value) return
-	const loginName = account.value.includes('@') ? account.value.split('@')[0] : account.value
-	loginUser.value = {
-		id: Date.now(),
-		name: loginName || '测试用户',
-		email: account.value,
-		avatarText: (loginName || '测').slice(0, 1),
-		fans: userTestData.value.fans.length,
-		follows: userTestData.value.followings.length
-	}
-	closeLoginModal()
-}
-
-const mockRegister = () => {
-	if (!canRegister.value) return
-	const name = registerEmail.value.split('@')[0] || '新用户'
-	loginUser.value = {
-		id: Date.now(),
-		name,
-		email: registerEmail.value,
-		avatarText: name.slice(0, 1),
-		fans: userTestData.value.fans.length,
-		follows: userTestData.value.followings.length
-	}
-	closeRegisterModal()
-}
-
-const mockLogout = () => {
-	loginUser.value = null
-	currentPage.value = 'home'
+const setActiveProfileMenu = (menu: number) => {
+	if (route.name !== 'profile') return
+	router.replace({
+		name: 'profile',
+		query: {
+			...route.query,
+			menu: String(menu)
+		}
+	})
 }
 
 const goProfileCenter = () => {
@@ -167,15 +155,13 @@ const goProfileCenter = () => {
 	if (loginUser.value) {
 		viewedProfileUser.value = { ...loginUser.value }
 	}
-	activeProfileMenu.value = 0
-	currentPage.value = 'profile'
+	router.push({ name: 'profile', query: { menu: '0' } })
 }
 
 const openProfileEdit = () => {
 	if (!isLoggedIn.value || !loginUser.value) return
 	viewedProfileUser.value = { ...loginUser.value }
-	activeProfileMenu.value = 5
-	currentPage.value = 'profile'
+	router.push({ name: 'profile', query: { menu: '5' } })
 }
 
 const openAuthorProfile = (payload: { userId?: number; userName: string; avatarText: string }) => {
@@ -186,8 +172,7 @@ const openAuthorProfile = (payload: { userId?: number; userName: string; avatarT
 			payload.userName === loginUser.value.name)
 	) {
 		viewedProfileUser.value = { ...loginUser.value }
-		activeProfileMenu.value = 0
-		currentPage.value = 'profile'
+		router.push({ name: 'profile', query: { menu: '0' } })
 		return
 	}
 
@@ -210,182 +195,100 @@ const openAuthorProfile = (payload: { userId?: number; userName: string; avatarT
 		fans: 0,
 		follows: 0
 	}
-	activeProfileMenu.value = 0
-	currentPage.value = 'profile'
+	router.push({
+		name: 'profile',
+		query: {
+			menu: '0',
+			userId: String(profileId),
+			userName: profileName,
+			avatarText: profileAvatar
+		}
+	})
 }
 
 const goHome = () => {
-	currentPage.value = 'home'
+	router.push({ name: 'home' })
 }
 
 const openPostDetail = (postId: number, focusComment = false) => {
-	currentPostId.value = postId
-	currentPage.value = 'detail'
-	if (focusComment) {
-		detailCommentFocusToken.value += 1
-	}
+	router.push({
+		name: 'detail',
+		params: { id: String(postId) },
+		query: focusComment ? { focusTs: String(Date.now()) } : undefined
+	})
 }
 
 const openPostDetailWithComment = (postId: number) => {
 	openPostDetail(postId, true)
 }
 
+const ensureLoggedIn = () => {
+	if (isLoggedIn.value) return true
+	openLoginModal()
+	return false
+}
+
 const goEditPost = (postId: number) => {
-	editingPostId.value = postId
-	currentPage.value = 'edit'
+	if (!ensureLoggedIn() || !loginUser.value) return
+
+	const targetPost = posts.value.find((item) => item.id === postId)
+	if (!targetPost) return
+
+	const isAuthor = targetPost.authorId
+		? targetPost.authorId === loginUser.value.id
+		: targetPost.author === loginUser.value.name
+
+	if (!isAuthor) {
+		window.alert('仅作者可编辑该帖子')
+		return
+	}
+
+	router.push({ name: 'edit', params: { id: String(postId) } })
 }
 
 const togglePostLike = (postId: number) => {
-	const target = posts.value.find((item) => item.id === postId)
-	if (!target) return
-
-	const liked = Boolean(target.isLiked)
-	target.isLiked = !liked
-	target.likes = liked ? Math.max(0, target.likes - 1) : target.likes + 1
-
-	if (target.isLiked) {
-		if (!interactionTestData.value.likedPostIds.includes(postId)) {
-			interactionTestData.value.likedPostIds.push(postId)
-		}
-		return
-	}
-
-	interactionTestData.value.likedPostIds = interactionTestData.value.likedPostIds.filter(
-		(id) => id !== postId
-	)
+	if (!ensureLoggedIn()) return
+	togglePostLikeAction(postId)
 }
 
 const togglePostFavorite = (postId: number) => {
-	const target = posts.value.find((item) => item.id === postId)
-	if (!target) return
-
-	const favorited = Boolean(target.isFavorited)
-	target.isFavorited = !favorited
-
-	if (target.isFavorited) {
-		if (!interactionTestData.value.favoritedPostIds.includes(postId)) {
-			interactionTestData.value.favoritedPostIds.push(postId)
-		}
-		if (!userTestData.value.favoritePostIds.includes(postId)) {
-			userTestData.value.favoritePostIds.push(postId)
-		}
-		return
-	}
-
-	interactionTestData.value.favoritedPostIds = interactionTestData.value.favoritedPostIds.filter(
-		(id) => id !== postId
-	)
-	userTestData.value.favoritePostIds = userTestData.value.favoritePostIds.filter((id) => id !== postId)
+	if (!ensureLoggedIn()) return
+	togglePostFavoriteAction(postId)
 }
 
 const togglePostFollow = (postId: number) => {
-	const target = posts.value.find((item) => item.id === postId)
-	if (!target) return
+	if (!ensureLoggedIn()) return
+	togglePostFollowAction(postId)
+}
 
-	if (
-		loginUser.value &&
-		(target.authorId === loginUser.value.id || target.author === loginUser.value.name)
-	) {
-		window.alert('不能关注自己')
-		return
-	}
+const submitComment = (postId: number, content: string) => {
+	if (!ensureLoggedIn()) return
+	submitCommentAction(postId, content)
+}
 
-	const authorId = target.authorId ?? postId
-	const authorName = target.author || '未知作者'
-	const authorAvatarText = authorName.slice(0, 1)
-	const willFollow = !target.isFollowingAuthor
+const toggleCommentLike = (commentId: number) => {
+	if (!ensureLoggedIn()) return
+	toggleCommentLikeAction(commentId)
+}
 
-	posts.value.forEach((item) => {
-		const itemAuthorId = item.authorId ?? item.id
-		if (itemAuthorId === authorId) {
-			item.isFollowingAuthor = willFollow
-		}
-	})
+const deleteComment = (commentId: number) => {
+	if (!ensureLoggedIn()) return
+	deleteCommentAction(commentId)
+}
 
-	if (willFollow) {
-		if (!interactionTestData.value.followedAuthorIds.includes(authorId)) {
-			interactionTestData.value.followedAuthorIds.push(authorId)
-		}
-		if (!userTestData.value.followings.some((item) => item.id === authorId)) {
-			userTestData.value.followings.push({
-				id: authorId,
-				name: authorName,
-				avatarText: authorAvatarText
-			})
-		}
-	} else {
-		interactionTestData.value.followedAuthorIds = interactionTestData.value.followedAuthorIds.filter(
-			(id) => id !== authorId
-		)
-		userTestData.value.followings = userTestData.value.followings.filter((item) => item.id !== authorId)
-	}
+const toggleFollowingUser = (userId: number) => {
+	if (!ensureLoggedIn()) return
+	toggleFollowingUserAction(userId)
+}
 
-	if (loginUser.value) {
-		loginUser.value.follows = userTestData.value.followings.length
-	}
+const toggleFanFollow = (userId: number) => {
+	if (!ensureLoggedIn()) return
+	toggleFanFollowAction(userId)
 }
 
 const currentPost = computed(() =>
 	posts.value.find((item) => item.id === currentPostId.value) ?? null
 )
-
-const comments = ref<CommentRecord[]>([
-	{
-		id: 9001,
-		postId: 101,
-		authorId: 5001,
-		author: '测试用户A',
-		date: '02-20',
-		content: '测试评论：高赞样本。',
-		likes: 320,
-		isLiked: false,
-		isMine: false
-	},
-	{
-		id: 9002,
-		postId: 102,
-		authorId: 5002,
-		author: '测试用户B',
-		date: '02-19',
-		content: '测试评论：中等点赞样本。',
-		likes: 58,
-		isLiked: true,
-		isMine: false
-	},
-	{
-		id: 7001,
-		postId: 101,
-		authorId: loginUser.value?.id,
-		author: '我',
-		date: '02-20',
-		content: '这组光影对比太舒服了，最后一张构图很稳。',
-		likes: 32,
-		isLiked: false,
-		isMine: true
-	},
-	{
-		id: 7002,
-		postId: 102,
-		authorId: loginUser.value?.id,
-		author: '我',
-		date: '02-19',
-		content: '模板很实用，已经按你的思路做了我的周计划。',
-		likes: 15,
-		isLiked: false,
-		isMine: true
-	},
-	{
-		id: 7003,
-		postId: 103,
-		authorId: loginUser.value?.id,
-		author: '我',
-		date: '02-18',
-		content: '补给点信息很关键，感谢整理。',
-		likes: 8,
-		isLiked: false,
-		isMine: true
-	}
-])
 
 const currentPostComments = computed(() => {
 	if (!currentPostId.value) return []
@@ -472,123 +375,8 @@ const canFollowProfile = computed(() => {
 	return loginUser.value.id !== profileUser.value.id
 })
 
-const syncPostCommentCount = (postId: number) => {
-	const post = posts.value.find((item) => item.id === postId)
-	if (!post) return
-	post.comments = comments.value.filter((item) => item.postId === postId).length
-}
-
-const submitComment = (postId: number, content: string) => {
-	const now = new Date()
-	const mm = String(now.getMonth() + 1).padStart(2, '0')
-	const dd = String(now.getDate()).padStart(2, '0')
-
-	comments.value.unshift({
-		id: Date.now(),
-		postId,
-		authorId: loginUser.value?.id,
-		author: loginUser.value?.name || '我',
-		date: `${mm}-${dd}`,
-		content,
-		likes: 0,
-		isLiked: false,
-		isMine: true
-	})
-
-	syncPostCommentCount(postId)
-}
-
-const toggleCommentLike = (commentId: number) => {
-	const target = comments.value.find((item) => item.id === commentId)
-	if (!target) return
-
-	if (target.isLiked) {
-		target.isLiked = false
-		target.likes = Math.max(0, target.likes - 1)
-		return
-	}
-
-	target.isLiked = true
-	target.likes += 1
-}
-
-const deleteComment = (commentId: number) => {
-	const index = comments.value.findIndex((item) => item.id === commentId)
-	if (index === -1) return
-	const target = comments.value[index]
-	if (!target || !target.isMine) return
-
-	const postId = target.postId
-	comments.value.splice(index, 1)
-	syncPostCommentCount(postId)
-}
-
-const toggleFollowingUser = (userId: number) => {
-	userTestData.value.followings = userTestData.value.followings.filter((item) => item.id !== userId)
-	interactionTestData.value.followedAuthorIds = interactionTestData.value.followedAuthorIds.filter(
-		(id) => id !== userId
-	)
-	posts.value.forEach((item) => {
-		if (item.authorId === userId) {
-			item.isFollowingAuthor = false
-		}
-	})
-	if (loginUser.value) {
-		loginUser.value.follows = userTestData.value.followings.length
-	}
-}
-
-const toggleFanFollow = (userId: number) => {
-	const exists = userTestData.value.followings.some((item) => item.id === userId)
-	if (exists) {
-		toggleFollowingUser(userId)
-		return
-	}
-
-	const fan = userTestData.value.fans.find((item) => item.id === userId)
-	if (!fan) return
-	userTestData.value.followings.push({ ...fan })
-	if (loginUser.value) {
-		loginUser.value.follows = userTestData.value.followings.length
-	}
-}
-
 const toggleProfileFollow = () => {
-	if (!isLoggedIn.value) {
-		openLoginModal()
-		return
-	}
-
-	if (!profileUser.value) return
-
-	if (!canFollowProfile.value) {
-		window.alert('不能关注自己')
-		return
-	}
-
-	const userId = profileUser.value.id
-	const exists = userTestData.value.followings.some((item) => item.id === userId)
-	if (exists) {
-		toggleFollowingUser(userId)
-		return
-	}
-
-	userTestData.value.followings.push({
-		id: userId,
-		name: profileUser.value.name,
-		avatarText: profileUser.value.avatarText
-	})
-	if (!interactionTestData.value.followedAuthorIds.includes(userId)) {
-		interactionTestData.value.followedAuthorIds.push(userId)
-	}
-	posts.value.forEach((item) => {
-		if (item.authorId === userId || item.author === profileUser.value?.name) {
-			item.isFollowingAuthor = true
-		}
-	})
-	if (loginUser.value) {
-		loginUser.value.follows = userTestData.value.followings.length
-	}
+	toggleProfileFollowAction(profileUser.value, canFollowProfile.value)
 }
 
 const goPublish = () => {
@@ -596,79 +384,8 @@ const goPublish = () => {
 		openLoginModal()
 		return
 	}
-	currentPage.value = 'publish'
+	router.push({ name: 'publish' })
 }
-
-const posts = ref<Post[]>([
-	{
-		id: 101,
-		title: '城市夜景拍摄记录｜一条街拍到天亮',
-		summary: '测试数据：用于点赞/收藏/关注状态验证，包含多图与较高互动量。',
-		author: '风起时拍照',
-		time: '02-20',
-		tags: ['摄影', '夜景', '街拍'],
-		images: [
-			'linear-gradient(135deg, #2f3b73, #5f85ff)',
-			'linear-gradient(135deg, #1f6d7a, #24c0c8)',
-			'linear-gradient(135deg, #6e3d9a, #b16eff)'
-		],
-		comments: 128,
-		likes: 3560,
-		authorId: 201,
-		isLiked: true,
-		isFavorited: false,
-		isFollowingAuthor: true
-	},
-	{
-		id: 102,
-		title: '手账排版合集｜一周模板分享',
-		summary: '测试数据：用于收藏状态验证，当前设为已收藏、未点赞、未关注作者。',
-		author: '纸页慢生活',
-		time: '02-19',
-		tags: ['手账', '模板', '效率'],
-		images: [
-			'linear-gradient(135deg, #ffd1a8, #ff9e80)',
-			'linear-gradient(135deg, #ffe59a, #ffc85d)',
-			'linear-gradient(135deg, #fff0c7, #ffd68e)'
-		],
-		comments: 64,
-		likes: 892,
-		authorId: 202,
-		isLiked: false,
-		isFavorited: true,
-		isFollowingAuthor: false
-	},
-	{
-		id: 103,
-		title: '三天两晚徒步路线复盘',
-		summary: '测试数据：用于关注状态验证，当前设为已关注作者且已点赞未收藏。',
-		author: '山野日志',
-		time: '02-18',
-		tags: ['徒步', '旅行', '装备'],
-		images: ['linear-gradient(135deg, #5ea46f, #8ed39f)'],
-		comments: 212,
-		likes: 12450,
-		authorId: 203,
-		isLiked: true,
-		isFavorited: false,
-		isFollowingAuthor: true
-	},
-	{
-		id: 104,
-		title: '咖啡拉花新手练习记录（失败合集）',
-		summary: '测试数据：用于未交互场景验证，点赞/收藏/关注均为 false。',
-		author: '清晨一杯',
-		time: '02-17',
-		tags: ['咖啡', '拉花', '日常'],
-		images: ['linear-gradient(135deg, #8b5e3c, #c58b64)'],
-		comments: 39,
-		likes: 317,
-		authorId: 204,
-		isLiked: false,
-		isFavorited: false,
-		isFollowingAuthor: false
-	}
-])
 
 const sortByLikesDesc = (list: Post[]) => [...list].sort((a, b) => b.likes - a.likes)
 const sortByDateDesc = (list: Post[]) =>
@@ -703,7 +420,7 @@ const navFilteredPosts = computed(() => {
 	return getRecommendedPosts(posts.value)
 })
 
-const filteredHomePosts = computed(() => {
+const localFilteredHomePosts = computed(() => {
 	const keyword = normalizedSearchKeyword.value
 	if (!keyword) return navFilteredPosts.value
 
@@ -715,99 +432,148 @@ const filteredHomePosts = computed(() => {
 	})
 })
 
+const filteredHomePosts = computed(() => {
+	if (normalizedSearchKeyword.value && serverSearchPosts.value) {
+		return serverSearchPosts.value
+	}
+	return localFilteredHomePosts.value
+})
+
+const runSearch = async () => {
+	const keyword = searchKeyword.value.trim()
+	if (!keyword) {
+		serverSearchPosts.value = null
+		return
+	}
+
+	const currentRequestId = Date.now()
+	searchRequestId.value = currentRequestId
+
+	try {
+		const result = await searchPostsApi(keyword, activeNav.value)
+		if (searchRequestId.value !== currentRequestId) return
+		serverSearchPosts.value = result
+	} catch {
+		if (searchRequestId.value !== currentRequestId) return
+		serverSearchPosts.value = null
+	}
+}
+
 const handleSearch = () => {
-	currentPage.value = 'home'
+	const keyword = searchKeyword.value.trim()
+	router.push({
+		name: 'home',
+		query: {
+			nav: activeNav.value,
+			...(keyword ? { q: keyword } : {})
+		}
+	})
 }
 
 const handlePublish = (payload: PublishPayload) => {
-	const plain = payload.contentHtml.replace(/<[^>]*>/g, '').trim()
-	const summary = plain.length > 60 ? `${plain.slice(0, 60)}...` : plain
-	const imageMatches = [...payload.contentHtml.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/g)]
-	const imageList = imageMatches
-		.map((item) => item[1])
-		.filter((item): item is string => Boolean(item))
-	const now = new Date()
-	const mm = String(now.getMonth() + 1).padStart(2, '0')
-	const dd = String(now.getDate()).padStart(2, '0')
-
-	const newPost: Post = {
-		id: Date.now(),
-		title: payload.title,
-		summary: summary || '（无正文）',
-		contentHtml: payload.contentHtml,
-		author: loginUser.value?.name || '匿名用户',
-		time: `${mm}-${dd}`,
-		tags: payload.tags,
-		images: imageList,
-		comments: 0,
-		likes: 0
-	}
-
-	posts.value.unshift(newPost)
-	currentPage.value = 'home'
+	publishPost(payload)
+	router.push({ name: 'home' })
 }
 
 const handleSaveEditedPost = (payload: PublishPayload) => {
-	const postId = editingPostId.value
-	if (!postId) return
-
-	const target = posts.value.find((item) => item.id === postId)
-	if (!target) return
-
-	const plain = payload.contentHtml.replace(/<[^>]*>/g, '').trim()
-	const summary = plain.length > 60 ? `${plain.slice(0, 60)}...` : plain
-	const imageMatches = [...payload.contentHtml.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/g)]
-	const imageList = imageMatches
-		.map((item) => item[1])
-		.filter((item): item is string => Boolean(item))
-
-	target.title = payload.title
-	target.contentHtml = payload.contentHtml
-	target.summary = summary || '（无正文）'
-	target.tags = [...payload.tags]
-	target.images = imageList
-
-	currentPage.value = 'profile'
+	saveEditedPost(editingPostId.value, payload)
+	router.push({ name: 'profile', query: { menu: '0' } })
 }
 
 const handleSaveProfile = (payload: ProfileEditPayload) => {
-	if (!loginUser.value) return
-
-	const oldName = loginUser.value.name
-	loginUser.value.avatarUrl = payload.avatarUrl
-	loginUser.value.avatarText = (payload.name || oldName).slice(0, 1)
-	loginUser.value.name = payload.name
-	loginUser.value.gender = payload.gender
-
-	if (viewedProfileUser.value && viewedProfileUser.value.id === loginUser.value.id) {
-		viewedProfileUser.value = {
-			...viewedProfileUser.value,
-			avatarText: loginUser.value.avatarText,
-			avatarUrl: payload.avatarUrl,
-			name: payload.name,
-			gender: payload.gender
-		}
-	}
-
-	posts.value.forEach((item) => {
-		if (item.author === oldName || item.authorId === loginUser.value?.id) {
-			item.author = payload.name
-			item.authorId = loginUser.value?.id
-		}
-	})
-
-	comments.value.forEach((item) => {
-		if (item.isMine || item.author === oldName || item.authorId === loginUser.value?.id) {
-			item.author = payload.name
-			item.authorId = loginUser.value?.id
-		}
-	})
+	saveProfile(payload)
 }
 
 const handleChangePassword = (payload: PasswordChangePayload) => {
-	if (!payload.newPassword || payload.newPassword !== payload.confirmPassword) return
-	userPassword.value = payload.newPassword
+	changePassword(payload)
 }
+
+const handleLogout = () => {
+	mockLogout()
+	viewedProfileUser.value = null
+	router.push({ name: 'home' })
+}
+
+watch(
+	[() => route.fullPath, () => loginUser.value],
+	() => {
+		if (route.name !== 'profile') {
+			viewedProfileUser.value = null
+			return
+		}
+
+		const routeUserIdRaw = route.query.userId
+		const routeUserNameRaw = route.query.userName
+		const routeAvatarTextRaw = route.query.avatarText
+
+		if (!routeUserIdRaw && !routeUserNameRaw) {
+			viewedProfileUser.value = loginUser.value ? { ...loginUser.value } : null
+			return
+		}
+
+		const routeUserId = routeUserIdRaw ? Number(routeUserIdRaw) : undefined
+		const routeUserName = String(routeUserNameRaw || '')
+		const routeAvatarText = String(routeAvatarTextRaw || routeUserName.slice(0, 1))
+
+		if (loginUser.value && (routeUserId === loginUser.value.id || routeUserName === loginUser.value.name)) {
+			viewedProfileUser.value = { ...loginUser.value }
+			return
+		}
+
+		const fromPost = posts.value.find(
+			(item) => item.authorId === routeUserId || item.author === routeUserName
+		)
+		const fromFans = userTestData.value.fans.find((item) => item.id === routeUserId)
+		const fromFollowing = userTestData.value.followings.find((item) => item.id === routeUserId)
+
+		const profileName =
+			fromPost?.author || fromFans?.name || fromFollowing?.name || routeUserName || '未知用户'
+		const profileAvatar =
+			fromFans?.avatarText ||
+			fromFollowing?.avatarText ||
+			routeAvatarText ||
+			profileName.slice(0, 1)
+		const profileId = routeUserId ?? fromPost?.authorId ?? Date.now()
+
+		viewedProfileUser.value = {
+			id: profileId,
+			name: profileName,
+			email: `${profileName}@example.com`,
+			avatarText: profileAvatar,
+			fans: 0,
+			follows: 0
+		}
+	},
+	{ immediate: true }
+)
+
+watch(
+	() => route.query.q,
+	(newValue) => {
+		searchKeyword.value = typeof newValue === 'string' ? newValue : ''
+		runSearch()
+	},
+	{ immediate: true }
+)
+
+watch(
+	() => route.query.nav,
+	() => {
+		if (searchKeyword.value.trim()) {
+			runSearch()
+		}
+	}
+)
+
+watch(
+	() => [userTestData.value.fans.length, userTestData.value.followings.length, loginUser.value?.id],
+	() => {
+		if (!loginUser.value) return
+		loginUser.value.fans = userTestData.value.fans.length
+		loginUser.value.follows = userTestData.value.followings.length
+	},
+	{ immediate: true }
+)
 </script>
 
 <template>
@@ -821,7 +587,7 @@ const handleChangePassword = (payload: PasswordChangePayload) => {
 			@go-home="goHome"
 			@open-login="openLoginModal"
 			@go-profile="goProfileCenter"
-			@logout="mockLogout"
+			@logout="handleLogout"
 			@select-nav="handleSelectNav"
 			@update:search-keyword="searchKeyword = $event"
 			@search="handleSearch"
@@ -853,7 +619,7 @@ const handleChangePassword = (payload: PasswordChangePayload) => {
 			:my-favorite-posts="profileFavoritePosts"
 			:my-fans="profileFans"
 			:my-followings="profileFollowings"
-			@update:active-profile-menu="activeProfileMenu = $event"
+			@update:active-profile-menu="setActiveProfileMenu"
 			@open-detail="openPostDetail"
 			@edit-post="goEditPost"
 			@open-comment-detail="openPostDetailWithComment"
@@ -867,7 +633,7 @@ const handleChangePassword = (payload: PasswordChangePayload) => {
 			@open-profile-edit="openProfileEdit"
 			@save-profile="handleSaveProfile"
 			@change-password="handleChangePassword"
-			@logout="mockLogout"
+			@logout="handleLogout"
 		/>
 
 		<PublishPostContent v-else-if="currentPage === 'publish'" @publish="handlePublish" />
