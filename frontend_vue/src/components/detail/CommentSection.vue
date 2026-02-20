@@ -1,33 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import type { CommentRecord } from '../../types'
 
 const props = defineProps<{
 	currentUserName?: string
+	comments: CommentRecord[]
 }>()
 
-type CommentItem = {
-	id: number
-	author: string
-	date: string
-	content: string
-	likes: number
-}
+const emit = defineEmits<{
+	(e: 'submit-comment', content: string): void
+	(e: 'toggle-comment-like', commentId: number): void
+	(e: 'delete-comment', commentId: number): void
+	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
+}>()
 
 const commentInput = ref('')
 const sortOption = ref<'hot' | 'latest' | 'earliest'>('hot')
-
-const comments = ref<CommentItem[]>([
-	{
-		id: 1,
-		author: 'wufenghua',
-		date: '02-14',
-		content: '大保底吃满，抽不到了',
-		likes: 242
-	}
-])
+const editorCardRef = ref<HTMLElement | null>(null)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const sortedComments = computed(() => {
-	const list = [...comments.value]
+	const list = [...props.comments]
 	if (sortOption.value === 'hot') {
 		return list.sort((a, b) => b.likes - a.likes)
 	}
@@ -41,28 +34,34 @@ const handleSubmitComment = () => {
 	const value = commentInput.value.trim()
 	if (!value) return
 
-	const now = new Date()
-	const mm = String(now.getMonth() + 1).padStart(2, '0')
-	const dd = String(now.getDate()).padStart(2, '0')
-
-	comments.value.unshift({
-		id: Date.now(),
-		author: props.currentUserName || '我',
-		date: `${mm}-${dd}`,
-		content: value,
-		likes: 0
-	})
+	emit('submit-comment', value)
 
 	commentInput.value = ''
 }
+
+const focusCommentEditor = () => {
+	editorCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+	nextTick(() => {
+		textareaRef.value?.focus()
+	})
+}
+
+defineExpose({
+	focusCommentEditor
+})
 </script>
 
 <template>
 	<div class="comment-section">
-		<section class="comment-editor-card">
+		<section ref="editorCardRef" class="comment-editor-card">
 			<p class="editor-tip">看帖是喜欢，评论才是真爱：</p>
 			<div class="editor-box">
-				<textarea v-model="commentInput" maxlength="1000" placeholder="善语结缘，温暖常伴..." />
+				<textarea
+					ref="textareaRef"
+					v-model="commentInput"
+					maxlength="1000"
+					placeholder="善语结缘，温暖常伴..."
+				/>
 			</div>
 			<div class="editor-actions">
 				<button class="comment-btn" :disabled="!commentInput.trim()" @click="handleSubmitComment">评论</button>
@@ -85,16 +84,39 @@ const handleSubmitComment = () => {
 			</div>
 
 			<article v-for="item in sortedComments" :key="item.id" class="comment-item">
-				<div class="avatar"></div>
+				<div
+					class="avatar"
+					@click="emit('open-author-profile', { userId: item.authorId, userName: item.author, avatarText: item.author.slice(0, 1) })"
+				></div>
 				<div class="comment-body">
 					<div class="comment-user-row">
-						<span class="name">{{ item.author }}</span>
+						<span
+							class="name"
+							@click="emit('open-author-profile', { userId: item.authorId, userName: item.author, avatarText: item.author.slice(0, 1) })"
+						>
+							{{ item.author }}
+						</span>
 					</div>
 					<p class="comment-content">{{ item.content }}</p>
 					<div class="comment-bottom">
 						<span class="date">{{ item.date }}</span>
 						<span>回复</span>
-						<span>👍 {{ item.likes }}</span>
+						<button
+							type="button"
+							class="comment-like-btn"
+							:class="{ liked: item.isLiked }"
+							@click="emit('toggle-comment-like', item.id)"
+						>
+							👍 {{ item.likes }}
+						</button>
+						<button
+							v-if="item.isMine"
+							type="button"
+							class="comment-delete-btn"
+							@click="emit('delete-comment', item.id)"
+						>
+							删除
+						</button>
 					</div>
 				</div>
 			</article>
@@ -243,5 +265,32 @@ const handleSubmitComment = () => {
 	gap: 16px;
 	font-size: 14px;
 	color: #a8afbd;
+}
+
+.comment-like-btn {
+	border: none;
+	background: transparent;
+	padding: 0;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+.comment-like-btn.liked {
+	color: #ff7a59;
+	font-weight: 600;
+}
+
+.comment-delete-btn {
+	border: none;
+	background: transparent;
+	padding: 0;
+	font: inherit;
+	color: #8f97a8;
+	cursor: pointer;
+}
+
+.comment-delete-btn:hover {
+	color: #f56c6c;
 }
 </style>

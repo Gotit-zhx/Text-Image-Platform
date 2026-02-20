@@ -3,14 +3,15 @@ import type { Post } from '../../types'
 
 defineProps<{
 	post: Post
+	actionText?: string
 }>()
 
 const emit = defineEmits<{
 	(e: 'open-detail', postId: number): void
+	(e: 'action-click', postId: number): void
 	(e: 'open-comment-detail', postId: number): void
 	(e: 'toggle-post-like', postId: number): void
 	(e: 'toggle-post-favorite', postId: number): void
-	(e: 'toggle-post-follow', postId: number): void
 	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
 }>()
 
@@ -59,9 +60,7 @@ const getImageStyle = (image: string) => {
 				</div>
 			</div>
 
-			<button class="follow" :class="{ followed: post.isFollowingAuthor }" @click.stop="emit('toggle-post-follow', post.id)">
-				{{ post.isFollowingAuthor ? '已关注' : '关注' }}
-			</button>
+			<button class="edit-btn" @click.stop="emit('action-click', post.id)">{{ actionText || '编辑' }}</button>
 		</div>
 
 		<p class="summary">{{ post.summary }}</p>
@@ -152,21 +151,15 @@ const getImageStyle = (image: string) => {
 	letter-spacing: 0.3px;
 }
 
-.follow {
+.edit-btn {
 	height: 32px;
 	min-width: 74px;
 	border-radius: 999px;
-	border: none;
+	border: 1px solid #8fd2ff;
 	cursor: pointer;
-	color: #fff;
+	color: #18a8f2;
 	font-weight: 600;
-	background: linear-gradient(180deg, #30c6ff, #13a6f6);
-}
-
-.follow.followed {
-	background: #eef3f8;
-	color: #74819a;
-	border: 1px solid #d8e1ed;
+	background: #f2fbff;
 }
 
 .summary {
@@ -248,22 +241,5 @@ const getImageStyle = (image: string) => {
 .stats-btn.favorited {
 	color: #f2a100;
 	font-weight: 600;
-}
-
-@media (max-width: 768px) {
-	.title {
-		font-size: 18px;
-	}
-
-	.summary,
-	.images,
-	.tags,
-	.stats {
-		margin-left: 0;
-	}
-
-	.images {
-		max-width: none;
-	}
 }
 </style>

@@ -3,8 +3,10 @@ import type { LoginUser } from '../types'
 
 defineProps<{
 	navItems: string[]
+	activeNav: string
 	isLoggedIn: boolean
 	loginUser: LoginUser | null
+	searchKeyword: string
 }>()
 
 const emit = defineEmits<{
@@ -12,6 +14,9 @@ const emit = defineEmits<{
 	(e: 'open-login'): void
 	(e: 'go-profile'): void
 	(e: 'logout'): void
+	(e: 'select-nav', nav: string): void
+	(e: 'update:searchKeyword', value: string): void
+	(e: 'search'): void
 }>()
 </script>
 
@@ -19,10 +24,10 @@ const emit = defineEmits<{
 	<header class="topbar">
 		<div class="topbar-inner">
 			<div class="brand-wrap" @click="emit('go-home')">
-				<div class="logo">米</div>
-				<div class="brand-text">米游社</div>
-				<div class="divider">·</div>
-				<div class="zone">绝区零</div>
+				<div class="logo">🍀</div>
+				<div class="brand-text">百草园</div>
+				<!-- <div class="divider">·</div>
+				<div class="zone">百草园</div> -->
 			</div>
 
 			<nav class="nav">
@@ -31,16 +36,26 @@ const emit = defineEmits<{
 					:key="item"
 					href="#"
 					class="nav-item"
-					:class="{ active: idx === 0 }"
+					:class="{ active: activeNav === item }"
+					@click.prevent="emit('select-nav', item)"
 				>
 					{{ item }}
 				</a>
 			</nav>
 
 			<div class="topbar-right">
-				<div class="search">🔍</div>
+				<div class="search">
+					<input
+						:value="searchKeyword"
+						type="text"
+						placeholder="搜索文章/作者/标签"
+						@input="emit('update:searchKeyword', ($event.target as HTMLInputElement).value)"
+						@keydown.enter="emit('search')"
+					/>
+					<button type="button" class="search-btn" @click="emit('search')">🔍</button>
+				</div>
 				<div v-if="isLoggedIn" class="user-entry">
-					<div class="avatar">{{ loginUser?.avatarText || '' }}</div>
+					<div class="avatar" @click="emit('go-profile')">{{ loginUser?.avatarText || '' }}</div>
 					<div class="user-dropdown">
 						<div class="user-dropdown-head">
 							<div class="user-big-avatar">{{ loginUser?.avatarText || '' }}</div>
@@ -150,14 +165,38 @@ const emit = defineEmits<{
 }
 
 .search {
-	width: 120px;
+	width: 220px;
 	height: 30px;
 	border-radius: 999px;
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
-	padding-right: 10px;
+	padding: 0 4px 0 10px;
 	background: rgba(255, 255, 255, 0.14);
+}
+
+.search input {
+	flex: 1;
+	height: 100%;
+	border: none;
+	background: transparent;
+	outline: none;
+	color: #eef3ff;
+	font-size: 12px;
+}
+
+.search input::placeholder {
+	color: rgba(238, 243, 255, 0.7);
+}
+
+.search-btn {
+	width: 24px;
+	height: 24px;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: #eef3ff;
+	cursor: pointer;
+	padding: 0;
 }
 
 .avatar {

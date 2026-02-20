@@ -5,6 +5,10 @@ defineProps<{
 	post: Post
 }>()
 
+const emit = defineEmits<{
+	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
+}>()
+
 const getImageStyle = (image: string) => {
 	if (/^(linear-gradient|radial-gradient|conic-gradient)\(/.test(image)) {
 		return { background: image }
@@ -21,10 +25,18 @@ const getImageStyle = (image: string) => {
 <template>
 	<article class="detail-card">
 		<div class="detail-meta">
-			<div class="author-avatar"></div>
+			<div
+				class="author-avatar"
+				@click="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.author.slice(0, 1) })"
+			></div>
 			<div>
 				<div class="author-line">
-					<span class="author">{{ post.author }}</span>
+					<span
+						class="author"
+						@click="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.author.slice(0, 1) })"
+					>
+						{{ post.author }}
+					</span>
 					<span class="time">{{ post.time }}</span>
 				</div>
 				<h1>{{ post.title }}</h1>

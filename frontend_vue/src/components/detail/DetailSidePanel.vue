@@ -1,14 +1,41 @@
+<script setup lang="ts">
+defineProps<{
+	isLiked?: boolean
+	likeCount?: number
+	isFavorited?: boolean
+	isFollowingAuthor?: boolean
+}>()
+
+const emit = defineEmits<{
+	(e: 'comment-click'): void
+	(e: 'toggle-like'): void
+	(e: 'toggle-favorite'): void
+	(e: 'toggle-follow'): void
+}>()
+</script>
+
 <template>
 	<aside class="right-panel">
 		<div class="follow-card">
 			<div class="tab">关注</div>
-			<button class="follow-btn">关注作者</button>
+			<button class="follow-btn" :class="{ followed: isFollowingAuthor }" @click="emit('toggle-follow')">
+				{{ isFollowingAuthor ? '已关注作者' : '关注作者' }}
+			</button>
 		</div>
 
 		<div class="action-card">
-			<button class="action-item" title="点赞">👍</button>
-			<button class="action-item" title="评论">💬</button>
-			<button class="action-item" title="收藏">⭐</button>
+			<button class="action-item" :class="{ liked: isLiked }" title="点赞" @click="emit('toggle-like')">
+				👍 {{ likeCount ?? 0 }}
+			</button>
+			<button class="action-item" title="评论" @click="emit('comment-click')">💬</button>
+			<button
+				class="action-item"
+				:class="{ favorited: isFavorited }"
+				title="收藏"
+				@click="emit('toggle-favorite')"
+			>
+				⭐ {{ isFavorited ? '已收藏' : '收藏' }}
+			</button>
 		</div>
 	</aside>
 </template>
@@ -49,6 +76,12 @@
 	background: linear-gradient(180deg, #30c6ff, #13a6f6);
 }
 
+.follow-btn.followed {
+	background: #eef3f8;
+	color: #74819a;
+	border: 1px solid #d8e1ed;
+}
+
 .action-card {
 	background: #fff;
 	border: 1px solid #e9edf3;
@@ -66,7 +99,21 @@
 	border-radius: 8px;
 	background: #f9fbfe;
 	cursor: pointer;
-	font-size: 20px;
+	font-size: 14px;
+}
+
+.action-item.liked {
+	color: #ff7a59;
+	border-color: #ffcdbf;
+	background: #fff7f4;
+	font-weight: 600;
+}
+
+.action-item.favorited {
+	color: #f2a100;
+	border-color: #ffe2a2;
+	background: #fff9e9;
+	font-weight: 600;
 }
 
 @media (max-width: 1024px) {

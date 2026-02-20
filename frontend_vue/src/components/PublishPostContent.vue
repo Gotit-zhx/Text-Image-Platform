@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import type { PublishPayload } from '../types'
+import type { Post, PublishPayload } from '../types'
+
+const props = withDefaults(
+	defineProps<{
+		mode?: 'create' | 'edit'
+		initialPost?: Post | null
+	}>(),
+	{
+		mode: 'create',
+		initialPost: null
+	}
+)
 
 const emit = defineEmits<{
 	(e: 'publish', payload: PublishPayload): void
+	(e: 'save-edit', payload: PublishPayload): void
 }>()
 
 const title = ref('')
@@ -93,11 +105,19 @@ const handlePublish = () => {
 		handleAddTag()
 	}
 
-	emit('publish', {
+	const payload: PublishPayload = {
 		title: title.value.trim(),
 		contentHtml: content.value,
 		tags: [...tags.value]
-	})
+	}
+
+	if (props.mode === 'edit') {
+		emit('save-edit', payload)
+		submitTip.value = '保存成功（模拟）'
+		return
+	}
+
+	emit('publish', payload)
 
 	submitTip.value = '发布成功（模拟）'
 	title.value = ''
@@ -105,12 +125,25 @@ const handlePublish = () => {
 	tagInput.value = ''
 	tags.value = []
 }
+
+watch(
+	() => props.initialPost,
+	(post) => {
+		if (!post) return
+		title.value = post.title
+		content.value = post.contentHtml || `<p>${post.summary}</p>`
+		tags.value = [...post.tags]
+		tagInput.value = ''
+		submitTip.value = ''
+	},
+	{ immediate: true }
+)
 </script>
 
 <template>
 	<main class="publish-page">
 		<section class="publish-card">
-			<h2>发布帖子</h2>
+			<h2>{{ mode === 'edit' ? '编辑帖子' : '发布帖子' }}</h2>
 
 			<div class="form-row">
 				<label>标题：</label>
@@ -160,7 +193,7 @@ const handlePublish = () => {
 			</div>
 
 			<div class="submit-wrap">
-				<button class="submit-btn" @click="handlePublish">发布</button>
+				<button class="submit-btn" @click="handlePublish">{{ mode === 'edit' ? '保存修改' : '发布' }}</button>
 			</div>
 			<p v-if="submitTip" class="submit-tip">{{ submitTip }}</p>
 		</section>
