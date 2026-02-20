@@ -1,0 +1,130 @@
+<script setup lang="ts">
+import type { Post } from '../../types'
+
+defineProps<{
+	post: Post
+}>()
+
+const getImageStyle = (image: string) => {
+	if (/^(linear-gradient|radial-gradient|conic-gradient)\(/.test(image)) {
+		return { background: image }
+	}
+
+	return {
+		backgroundImage: `url(${image})`,
+		backgroundSize: 'cover',
+		backgroundPosition: 'center'
+	}
+}
+</script>
+
+<template>
+	<article class="detail-card">
+		<div class="detail-meta">
+			<div class="author-avatar"></div>
+			<div>
+				<div class="author-line">
+					<span class="author">{{ post.author }}</span>
+					<span class="time">{{ post.time }}</span>
+				</div>
+				<h1>{{ post.title }}</h1>
+			</div>
+		</div>
+
+		<div v-if="!post.contentHtml && post.images.length" class="images" :class="{ single: post.images.length === 1 }">
+			<div v-for="(image, idx) in post.images" :key="`${post.id}-${idx}`" class="img" :style="getImageStyle(image)" />
+		</div>
+
+		<div v-if="post.contentHtml" class="content-html" v-html="post.contentHtml"></div>
+		<p v-else class="summary">{{ post.summary }}</p>
+
+		<div v-if="post.tags.length" class="tags">
+			<span v-for="tag in post.tags" :key="tag" class="tag"># {{ tag }}</span>
+		</div>
+	</article>
+</template>
+
+<style scoped>
+.detail-card {
+	background: #fff;
+	border: 1px solid #e9edf3;
+	border-radius: 12px;
+	padding: 18px 20px;
+}
+
+.detail-meta {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.author-avatar {
+	width: 38px;
+	height: 38px;
+	border-radius: 50%;
+	background: linear-gradient(145deg, #f4bf80, #e88e47);
+	border: 1px solid #e7d3bf;
+}
+
+.author-line {
+	display: flex;
+	gap: 10px;
+	font-size: 12px;
+	color: #8c94a7;
+}
+
+.author {
+	font-size: 13px;
+	font-weight: 600;
+	color: #515869;
+}
+
+h1 {
+	margin: 6px 0 0;
+	font-size: 24px;
+}
+
+.images {
+	margin-top: 14px;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.images.single {
+	grid-template-columns: 1fr;
+	max-width: 360px;
+}
+
+.img {
+	border-radius: 8px;
+	aspect-ratio: 16 / 10;
+}
+
+.content-html,
+.summary {
+	margin-top: 16px;
+	color: #3a4357;
+	line-height: 1.8;
+}
+
+:deep(.content-html img) {
+	max-width: 100%;
+	border-radius: 8px;
+}
+
+.tags {
+	margin-top: 14px;
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.tag {
+	font-size: 12px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: #f3f5f8;
+	color: #798197;
+}
+</style>
