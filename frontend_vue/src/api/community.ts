@@ -1,5 +1,7 @@
+// 审查状态：部分完成（已接入搜索与初始化接口，写接口已提供服务端优先占位）
 import type { CommentRecord, InteractionTestData, Post, UserTestData } from '../types'
 import { apiRequest } from './client'
+import type { PublishPayload } from '../types'
 
 const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API || 'true') === 'true'
 
@@ -13,6 +15,31 @@ export type CommunitySeed = {
 	interactionTestData: InteractionTestData
 	posts: Post[]
 	comments: CommentRecord[]
+}
+
+type PostDraft = {
+	title: string
+	summary: string
+	contentHtml: string
+	tags: string[]
+	images: string[]
+}
+
+const extractPostDraft = (payload: PublishPayload): PostDraft => {
+	const plain = payload.contentHtml.replace(/<[^>]*>/g, '').trim()
+	const summary = plain.length > 60 ? `${plain.slice(0, 60)}...` : plain
+	const imageMatches = [...payload.contentHtml.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/g)]
+	const imageList = imageMatches
+		.map((item) => item[1])
+		.filter((item): item is string => Boolean(item))
+
+	return {
+		title: payload.title,
+		summary: summary || '（无正文）',
+		contentHtml: payload.contentHtml,
+		tags: payload.tags,
+		images: imageList
+	}
 }
 
 const sortByLikesDesc = (list: Post[]) => [...list].sort((a, b) => b.likes - a.likes)
@@ -212,7 +239,11 @@ export const getCommunitySeedApi = async (): Promise<CommunitySeed> => {
 	return apiRequest<CommunitySeed>('/community/bootstrap')
 }
 
-export const searchPostsApi = async (keyword: string, nav: string): Promise<Post[]> => {
+export const searchPostsApi = async (
+	keyword: string,
+	nav: string,
+	options?: { signal?: AbortSignal }
+): Promise<Post[]> => {
 	if (USE_MOCK_API) {
 		const normalizedKeyword = keyword.trim().toLowerCase()
 		const navFiltered = filterByNav(getMockCommunitySeed().posts, nav)
@@ -231,6 +262,132 @@ export const searchPostsApi = async (keyword: string, nav: string): Promise<Post
 		nav
 	})
 
-	const response = await apiRequest<{ posts: Post[] }>(`/community/search?${query.toString()}`)
+	const response = await apiRequest<{ posts: Post[] }>(`/community/search?${query.toString()}`, {
+		signal: options?.signal
+	})
 	return response.posts
+}
+
+export const publishPostApi = async (payload: PublishPayload, authorName: string): Promise<Post> => {
+	if (USE_MOCK_API) {
+		const now = new Date()
+		const mm = String(now.getMonth() + 1).padStart(2, '0')
+		const dd = String(now.getDate()).padStart(2, '0')
+		const draft = extractPostDraft(payload)
+
+		return {
+			id: Date.now(),
+			title: draft.title,
+			summary: draft.summary,
+			contentHtml: draft.contentHtml,
+			author: authorName,
+			time: `${mm}-${dd}`,
+			tags: draft.tags,
+			images: draft.images,
+			comments: 0,
+			likes: 0
+		}
+	}
+
+	return apiRequest<Post>('/community/posts', {
+		method: 'POST',
+		body: JSON.stringify({
+			...extractPostDraft(payload),
+			author: authorName
+		})
+	})
+}
+
+export const saveEditedPostApi = async (postId: number, payload: PublishPayload): Promise<PostDraft> => {
+	if (USE_MOCK_API) {
+		return extractPostDraft(payload)
+	}
+
+	return apiRequest<PostDraft>(`/community/posts/${postId}`, {
+		method: 'PUT',
+		body: JSON.stringify(extractPostDraft(payload))
+	})
+}
+
+export const submitCommentApi = async (
+	postId: number,
+	content: string,
+	authorId?: number,
+	authorName = '我'
+): Promise<CommentRecord> => {
+	if (USE_MOCK_API) {
+		const now = new Date()
+		const mm = String(now.getMonth() + 1).padStart(2, '0')
+		const dd = String(now.getDate()).padStart(2, '0')
+		return {
+			id: Date.now(),
+			postId,
+			authorId,
+			author: authorName,
+			date: `${mm}-${dd}`,
+			content,
+			likes: 0,
+			isLiked: false,
+			isMine: true
+		}
+	}
+
+	return apiRequest<CommentRecord>(`/community/posts/${postId}/comments`, {
+		method: 'POST',
+		body: JSON.stringify({ content })
+	})
+}
+
+export const togglePostLikeApi = async (postId: number, willLike: boolean) => {
+	if (USE_MOCK_API) {
+		return { postId, isLiked: willLike }
+	}
+
+	return apiRequest<{ postId: number; isLiked: boolean }>(`/community/posts/${postId}/like`, {
+		method: 'POST',
+		body: JSON.stringify({ isLiked: willLike })
+	})
+}
+
+export const togglePostFavoriteApi = async (postId: number, willFavorite: boolean) => {
+	if (USE_MOCK_API) {
+		return { postId, isFavorited: willFavorite }
+	}
+
+	return apiRequest<{ postId: number; isFavorited: boolean }>(`/community/posts/${postId}/favorite`, {
+		method: 'POST',
+		body: JSON.stringify({ isFavorited: willFavorite })
+	})
+}
+
+export const toggleAuthorFollowApi = async (authorId: number, willFollow: boolean) => {
+	if (USE_MOCK_API) {
+		return { authorId, isFollowing: willFollow }
+	}
+
+	return apiRequest<{ authorId: number; isFollowing: boolean }>(`/community/authors/${authorId}/follow`, {
+		method: 'POST',
+		body: JSON.stringify({ isFollowing: willFollow })
+	})
+}
+
+export const toggleCommentLikeApi = async (commentId: number, willLike: boolean) => {
+	if (USE_MOCK_API) {
+		return { commentId, isLiked: willLike }
+	}
+
+	return apiRequest<{ commentId: number; isLiked: boolean }>(`/community/comments/${commentId}/like`, {
+		method: 'POST',
+		body: JSON.stringify({ isLiked: willLike })
+	})
+}
+
+export const deleteCommentApi = async (commentId: number) => {
+	if (USE_MOCK_API) {
+		return { commentId, deleted: true }
+	}
+
+	return apiRequest<{ commentId: number; deleted: boolean }>(`/community/comments/${commentId}`, {
+		method: 'DELETE'
+	})
 }

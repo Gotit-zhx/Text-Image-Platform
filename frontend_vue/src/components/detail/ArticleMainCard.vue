@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 审查状态：部分完成（已接入净化与 URL 协议限制，仍需后端内容审计协同）
 import { computed } from 'vue'
 import DOMPurify from 'dompurify'
 import type { Post } from '../../types'
@@ -11,9 +12,26 @@ const emit = defineEmits<{
 	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
 }>()
 
+const isSafeImageUrl = (value: string) => {
+	if (!value) return false
+	if (value.startsWith('/')) return true
+	if (value.startsWith('data:image/')) return true
+
+	try {
+		const parsed = new URL(value)
+		return parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'blob:'
+	} catch {
+		return false
+	}
+}
+
 const getImageStyle = (image: string) => {
 	if (/^(linear-gradient|radial-gradient|conic-gradient)\(/.test(image)) {
 		return { background: image }
+	}
+
+	if (!isSafeImageUrl(image)) {
+		return { background: '#f3f5f8' }
 	}
 
 	return {
@@ -25,9 +43,34 @@ const getImageStyle = (image: string) => {
 
 const sanitizedContentHtml = computed(() =>
 	DOMPurify.sanitize(props.post.contentHtml || '', {
-		USE_PROFILES: { html: true },
-		FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
-		FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus']
+		ALLOWED_TAGS: [
+			'p',
+			'br',
+			'strong',
+			'em',
+			'u',
+			's',
+			'a',
+			'blockquote',
+			'ul',
+			'ol',
+			'li',
+			'h1',
+			'h2',
+			'h3',
+			'h4',
+			'h5',
+			'h6',
+			'pre',
+			'code',
+			'img',
+			'span',
+			'div'
+		],
+		ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'class'],
+		ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|blob):|\/|data:image\/)/i,
+		FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+		FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick', 'onmouseover', 'onfocus']
 	})
 )
 </script>

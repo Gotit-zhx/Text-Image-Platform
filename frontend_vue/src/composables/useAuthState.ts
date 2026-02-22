@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import type { LoginUser } from '../types'
 import { loginApi, registerApi } from '../api/auth'
+import { clearSessionUser, readSessionUser, writeSessionUser } from '../auth/session'
 
 type UseAuthStateOptions = {
 	getUserStats: () => { fans: number; follows: number }
@@ -15,7 +16,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
 	const registerPassword = ref('')
 	const registerConfirmPassword = ref('')
 	const userPassword = ref('123456')
-	const loginUser = ref<LoginUser | null>(null)
+	const loginUser = ref<LoginUser | null>(readSessionUser())
 
 	const canLogin = computed(() => account.value.trim() !== '' && password.value.trim() !== '')
 	const isLoggedIn = computed(() => !!loginUser.value)
@@ -55,17 +56,24 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
 	const mockLogin = async () => {
 		if (!canLogin.value) return
 		loginUser.value = await loginApi(account.value, getUserStats())
+		if (loginUser.value) {
+			writeSessionUser(loginUser.value)
+		}
 		closeLoginModal()
 	}
 
 	const mockRegister = async () => {
 		if (!canRegister.value) return
 		loginUser.value = await registerApi(registerEmail.value, getUserStats())
+		if (loginUser.value) {
+			writeSessionUser(loginUser.value)
+		}
 		closeRegisterModal()
 	}
 
 	const mockLogout = () => {
 		loginUser.value = null
+		clearSessionUser()
 	}
 
 	return {

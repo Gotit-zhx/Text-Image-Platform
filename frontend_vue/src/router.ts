@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { isAuthenticated } from './auth/session'
 
 const RoutePlaceholder = { template: '<div />' }
 
@@ -16,11 +17,13 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/publish',
 		name: 'publish',
+		meta: { requiresAuth: true },
 		component: RoutePlaceholder
 	},
 	{
 		path: '/edit/:id(\\d+)',
 		name: 'edit',
+		meta: { requiresAuth: true },
 		component: RoutePlaceholder
 	},
 	{
@@ -37,4 +40,16 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
 	history: createWebHistory(),
 	routes
+})
+
+router.beforeEach((to) => {
+	if (!to.meta.requiresAuth) return true
+	if (isAuthenticated()) return true
+
+	return {
+		name: 'home',
+		query: {
+			redirect: to.fullPath
+		}
+	}
 })

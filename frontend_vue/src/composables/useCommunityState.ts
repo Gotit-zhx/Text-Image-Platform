@@ -1,11 +1,25 @@
+// 审查状态：部分完成（初始化/搜索已接口化，发布/编辑/评论已改服务端优先，互动接口待后端接入）
 import { ref, type ComputedRef, type Ref } from 'vue'
-import { getMockCommunitySeed } from '../api/community'
+import {
+	deleteCommentApi,
+	getCommunitySeedApi,
+	publishPostApi,
+	saveEditedPostApi,
+	submitCommentApi,
+	toggleAuthorFollowApi,
+	toggleCommentLikeApi,
+	togglePostFavoriteApi,
+	togglePostLikeApi
+} from '../api/community'
 import type {
+	CommentRecord,
+	InteractionTestData,
 	LoginUser,
 	PasswordChangePayload,
 	Post,
 	ProfileEditPayload,
-	PublishPayload
+	PublishPayload,
+	UserTestData
 } from '../types'
 
 type UseCommunityStateOptions = {
@@ -23,11 +37,37 @@ export const useCommunityState = ({
 	viewedProfileUser,
 	userPassword
 }: UseCommunityStateOptions) => {
-	const seed = getMockCommunitySeed()
-	const userTestData = ref(seed.userTestData)
-	const interactionTestData = ref(seed.interactionTestData)
-	const posts = ref(seed.posts)
-	const comments = ref(seed.comments)
+	const userTestData = ref<UserTestData>({
+		fans: [],
+		followings: [],
+		comments: [],
+		favoritePostIds: []
+	})
+	const interactionTestData = ref<InteractionTestData>({
+		likedPostIds: [],
+		favoritedPostIds: [],
+		followedAuthorIds: []
+	})
+	const posts = ref<Post[]>([])
+	const comments = ref<CommentRecord[]>([])
+	const isCommunityReady = ref(false)
+	const communityError = ref('')
+
+	const initCommunityData = async () => {
+		communityError.value = ''
+		try {
+			const seed = await getCommunitySeedApi()
+			userTestData.value = seed.userTestData
+			interactionTestData.value = seed.interactionTestData
+			posts.value = seed.posts
+			comments.value = seed.comments
+			syncDerivedState()
+			isCommunityReady.value = true
+		} catch {
+			isCommunityReady.value = false
+			communityError.value = '社区数据加载失败'
+		}
+	}
 
 	const syncDerivedState = () => {
 		const commentCountMap = comments.value.reduce<Record<number, number>>((acc, item) => {
@@ -47,6 +87,16 @@ export const useCommunityState = ({
 		})
 
 		userTestData.value.favoritePostIds = [...interactionTestData.value.favoritedPostIds]
+		userTestData.value.comments = comments.value
+			.filter((item) => item.isMine)
+			.map((item) => ({
+				id: item.id,
+				postId: item.postId,
+				postTitle: posts.value.find((post) => post.id === item.postId)?.title || '帖子已删除',
+				content: item.content,
+				date: item.date,
+				likes: item.likes
+			}))
 
 		if (loginUser.value) {
 			loginUser.value.fans = userTestData.value.fans.length
@@ -60,11 +110,12 @@ export const useCommunityState = ({
 		post.comments = comments.value.filter((item) => item.postId === postId).length
 	}
 
-	const togglePostLike = (postId: number) => {
+	const togglePostLike = async (postId: number) => {
 		const target = posts.value.find((item) => item.id === postId)
 		if (!target) return
 
 		const liked = interactionTestData.value.likedPostIds.includes(postId)
+		await togglePostLikeApi(postId, !liked)
 		target.likes = liked ? Math.max(0, target.likes - 1) : target.likes + 1
 
 		if (!liked) {
@@ -81,11 +132,12 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const togglePostFavorite = (postId: number) => {
+	const togglePostFavorite = async (postId: number) => {
 		const target = posts.value.find((item) => item.id === postId)
 		if (!target) return
 
 		const favorited = interactionTestData.value.favoritedPostIds.includes(postId)
+		await togglePostFavoriteApi(postId, !favorited)
 
 		if (!favorited) {
 			if (!interactionTestData.value.favoritedPostIds.includes(postId)) {
@@ -101,7 +153,7 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const togglePostFollow = (postId: number) => {
+	const togglePostFollow = async (postId: number) => {
 		const target = posts.value.find((item) => item.id === postId)
 		if (!target) return
 
@@ -117,6 +169,7 @@ export const useCommunityState = ({
 		const authorName = target.author || '未知作者'
 		const authorAvatarText = authorName.slice(0, 1)
 		const willFollow = !target.isFollowingAuthor
+		await toggleAuthorFollowApi(authorId, willFollow)
 
 		posts.value.forEach((item) => {
 			const itemAuthorId = item.authorId ?? item.id
@@ -146,30 +199,25 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const submitComment = (postId: number, content: string) => {
-		const now = new Date()
-		const mm = String(now.getMonth() + 1).padStart(2, '0')
-		const dd = String(now.getDate()).padStart(2, '0')
-
-		comments.value.unshift({
-			id: Date.now(),
+	const submitComment = async (postId: number, content: string) => {
+		const newComment = await submitCommentApi(
 			postId,
-			authorId: loginUser.value?.id,
-			author: loginUser.value?.name || '我',
-			date: `${mm}-${dd}`,
 			content,
-			likes: 0,
-			isLiked: false,
-			isMine: true
-		})
+			loginUser.value?.id,
+			loginUser.value?.name || '我'
+		)
+
+		comments.value.unshift(newComment)
 
 		syncPostCommentCount(postId)
 		syncDerivedState()
 	}
 
-	const toggleCommentLike = (commentId: number) => {
+	const toggleCommentLike = async (commentId: number) => {
 		const target = comments.value.find((item) => item.id === commentId)
 		if (!target) return
+
+		await toggleCommentLikeApi(commentId, !target.isLiked)
 
 		if (target.isLiked) {
 			target.isLiked = false
@@ -183,11 +231,13 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const deleteComment = (commentId: number) => {
+	const deleteComment = async (commentId: number) => {
 		const index = comments.value.findIndex((item) => item.id === commentId)
 		if (index === -1) return
 		const target = comments.value[index]
 		if (!target || !target.isMine) return
+
+		await deleteCommentApi(commentId)
 
 		const postId = target.postId
 		comments.value.splice(index, 1)
@@ -195,7 +245,9 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const toggleFollowingUser = (userId: number) => {
+	const toggleFollowingUser = async (userId: number) => {
+		await toggleAuthorFollowApi(userId, false)
+
 		userTestData.value.followings = userTestData.value.followings.filter((item) => item.id !== userId)
 		interactionTestData.value.followedAuthorIds = interactionTestData.value.followedAuthorIds.filter(
 			(id) => id !== userId
@@ -208,20 +260,21 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const toggleFanFollow = (userId: number) => {
+	const toggleFanFollow = async (userId: number) => {
 		const exists = userTestData.value.followings.some((item) => item.id === userId)
 		if (exists) {
-			toggleFollowingUser(userId)
+			await toggleFollowingUser(userId)
 			return
 		}
 
 		const fan = userTestData.value.fans.find((item) => item.id === userId)
 		if (!fan) return
+		await toggleAuthorFollowApi(userId, true)
 		userTestData.value.followings.push({ ...fan })
 		syncDerivedState()
 	}
 
-	const toggleProfileFollow = (profileUser: LoginUser | null, canFollowProfile: boolean) => {
+	const toggleProfileFollow = async (profileUser: LoginUser | null, canFollowProfile: boolean) => {
 		if (!isLoggedIn.value) {
 			openLoginModal()
 			return
@@ -237,9 +290,11 @@ export const useCommunityState = ({
 		const userId = profileUser.id
 		const exists = userTestData.value.followings.some((item) => item.id === userId)
 		if (exists) {
-			toggleFollowingUser(userId)
+			await toggleFollowingUser(userId)
 			return
 		}
+
+		await toggleAuthorFollowApi(userId, true)
 
 		userTestData.value.followings.push({
 			id: userId,
@@ -257,51 +312,24 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
-	const publishPost = (payload: PublishPayload) => {
-		const plain = payload.contentHtml.replace(/<[^>]*>/g, '').trim()
-		const summary = plain.length > 60 ? `${plain.slice(0, 60)}...` : plain
-		const imageMatches = [...payload.contentHtml.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/g)]
-		const imageList = imageMatches
-			.map((item) => item[1])
-			.filter((item): item is string => Boolean(item))
-		const now = new Date()
-		const mm = String(now.getMonth() + 1).padStart(2, '0')
-		const dd = String(now.getDate()).padStart(2, '0')
-
-		const newPost: Post = {
-			id: Date.now(),
-			title: payload.title,
-			summary: summary || '（无正文）',
-			contentHtml: payload.contentHtml,
-			author: loginUser.value?.name || '匿名用户',
-			time: `${mm}-${dd}`,
-			tags: payload.tags,
-			images: imageList,
-			comments: 0,
-			likes: 0
-		}
-
+	const publishPost = async (payload: PublishPayload) => {
+		const newPost = await publishPostApi(payload, loginUser.value?.name || '匿名用户')
 		posts.value.unshift(newPost)
 	}
 
-	const saveEditedPost = (postId: number | null, payload: PublishPayload) => {
+	const saveEditedPost = async (postId: number | null, payload: PublishPayload) => {
 		if (!postId) return
 
 		const target = posts.value.find((item) => item.id === postId)
 		if (!target) return
 
-		const plain = payload.contentHtml.replace(/<[^>]*>/g, '').trim()
-		const summary = plain.length > 60 ? `${plain.slice(0, 60)}...` : plain
-		const imageMatches = [...payload.contentHtml.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/g)]
-		const imageList = imageMatches
-			.map((item) => item[1])
-			.filter((item): item is string => Boolean(item))
+		const draft = await saveEditedPostApi(postId, payload)
 
-		target.title = payload.title
-		target.contentHtml = payload.contentHtml
-		target.summary = summary || '（无正文）'
-		target.tags = [...payload.tags]
-		target.images = imageList
+		target.title = draft.title
+		target.contentHtml = draft.contentHtml
+		target.summary = draft.summary
+		target.tags = [...draft.tags]
+		target.images = draft.images
 	}
 
 	const saveProfile = (payload: ProfileEditPayload) => {
@@ -345,13 +373,14 @@ export const useCommunityState = ({
 		userPassword.value = payload.newPassword
 	}
 
-	syncDerivedState()
-
 	return {
 		userTestData,
 		interactionTestData,
 		posts,
 		comments,
+		isCommunityReady,
+		communityError,
+		initCommunityData,
 		togglePostLike,
 		togglePostFavorite,
 		togglePostFollow,

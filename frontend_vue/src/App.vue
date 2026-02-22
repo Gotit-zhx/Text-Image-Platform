@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+// 审查状态：部分完成（鉴权/路由/搜索已接入，社区写链路与权限守卫持续加固中）
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppTopBar from './components/AppTopBar.vue'
 import HomeContent from './components/HomeContent.vue'
@@ -73,6 +74,9 @@ const activeNav = computed(() => {
 const viewedProfileUser = ref<LoginUser | null>(null)
 const serverSearchPosts = ref<Post[] | null>(null)
 const searchRequestId = ref(0)
+const isSearching = ref(false)
+const searchError = ref('')
+const searchAbortController = ref<AbortController | null>(null)
 
 const {
 	showLoginModal,
@@ -106,6 +110,9 @@ const {
 	interactionTestData,
 	posts,
 	comments,
+	isCommunityReady,
+	communityError,
+	initCommunityData,
 	togglePostLike: togglePostLikeAction,
 	togglePostFavorite: togglePostFavoriteAction,
 	togglePostFollow: togglePostFollowAction,
@@ -125,6 +132,10 @@ const {
 	openLoginModal,
 	viewedProfileUser,
 	userPassword
+})
+
+onMounted(() => {
+	initCommunityData()
 })
 
 const normalizedSearchKeyword = computed(() => searchKeyword.value.trim().toLowerCase())
@@ -228,6 +239,14 @@ const ensureLoggedIn = () => {
 	return false
 }
 
+const runGuardedAction = async (action: () => Promise<void>) => {
+	try {
+		await action()
+	} catch {
+		window.alert('操作失败，请稍后重试')
+	}
+}
+
 const goEditPost = (postId: number) => {
 	if (!ensureLoggedIn() || !loginUser.value) return
 
@@ -246,44 +265,60 @@ const goEditPost = (postId: number) => {
 	router.push({ name: 'edit', params: { id: String(postId) } })
 }
 
-const togglePostLike = (postId: number) => {
+const togglePostLike = async (postId: number) => {
 	if (!ensureLoggedIn()) return
-	togglePostLikeAction(postId)
+	await runGuardedAction(async () => {
+		await togglePostLikeAction(postId)
+	})
 }
 
-const togglePostFavorite = (postId: number) => {
+const togglePostFavorite = async (postId: number) => {
 	if (!ensureLoggedIn()) return
-	togglePostFavoriteAction(postId)
+	await runGuardedAction(async () => {
+		await togglePostFavoriteAction(postId)
+	})
 }
 
-const togglePostFollow = (postId: number) => {
+const togglePostFollow = async (postId: number) => {
 	if (!ensureLoggedIn()) return
-	togglePostFollowAction(postId)
+	await runGuardedAction(async () => {
+		await togglePostFollowAction(postId)
+	})
 }
 
-const submitComment = (postId: number, content: string) => {
+const submitComment = async (postId: number, content: string) => {
 	if (!ensureLoggedIn()) return
-	submitCommentAction(postId, content)
+	await runGuardedAction(async () => {
+		await submitCommentAction(postId, content)
+	})
 }
 
-const toggleCommentLike = (commentId: number) => {
+const toggleCommentLike = async (commentId: number) => {
 	if (!ensureLoggedIn()) return
-	toggleCommentLikeAction(commentId)
+	await runGuardedAction(async () => {
+		await toggleCommentLikeAction(commentId)
+	})
 }
 
-const deleteComment = (commentId: number) => {
+const deleteComment = async (commentId: number) => {
 	if (!ensureLoggedIn()) return
-	deleteCommentAction(commentId)
+	await runGuardedAction(async () => {
+		await deleteCommentAction(commentId)
+	})
 }
 
-const toggleFollowingUser = (userId: number) => {
+const toggleFollowingUser = async (userId: number) => {
 	if (!ensureLoggedIn()) return
-	toggleFollowingUserAction(userId)
+	await runGuardedAction(async () => {
+		await toggleFollowingUserAction(userId)
+	})
 }
 
-const toggleFanFollow = (userId: number) => {
+const toggleFanFollow = async (userId: number) => {
 	if (!ensureLoggedIn()) return
-	toggleFanFollowAction(userId)
+	await runGuardedAction(async () => {
+		await toggleFanFollowAction(userId)
+	})
 }
 
 const currentPost = computed(() =>
@@ -375,8 +410,10 @@ const canFollowProfile = computed(() => {
 	return loginUser.value.id !== profileUser.value.id
 })
 
-const toggleProfileFollow = () => {
-	toggleProfileFollowAction(profileUser.value, canFollowProfile.value)
+const toggleProfileFollow = async () => {
+	await runGuardedAction(async () => {
+		await toggleProfileFollowAction(profileUser.value, canFollowProfile.value)
+	})
 }
 
 const goPublish = () => {
@@ -442,20 +479,38 @@ const filteredHomePosts = computed(() => {
 const runSearch = async () => {
 	const keyword = searchKeyword.value.trim()
 	if (!keyword) {
+		searchAbortController.value?.abort()
+		searchAbortController.value = null
 		serverSearchPosts.value = null
+		searchError.value = ''
+		isSearching.value = false
 		return
 	}
 
-	const currentRequestId = Date.now()
+	searchAbortController.value?.abort()
+	searchAbortController.value = new AbortController()
+
+	const currentRequestId = searchRequestId.value + 1
 	searchRequestId.value = currentRequestId
+	isSearching.value = true
+	searchError.value = ''
 
 	try {
-		const result = await searchPostsApi(keyword, activeNav.value)
+		const result = await searchPostsApi(keyword, activeNav.value, {
+			signal: searchAbortController.value.signal
+		})
 		if (searchRequestId.value !== currentRequestId) return
 		serverSearchPosts.value = result
-	} catch {
+		searchError.value = ''
+	} catch (error) {
 		if (searchRequestId.value !== currentRequestId) return
+		if (error instanceof Error && error.name === 'AbortError') return
 		serverSearchPosts.value = null
+		searchError.value = '搜索服务暂不可用，已回退本地结果'
+	} finally {
+		if (searchRequestId.value === currentRequestId) {
+			isSearching.value = false
+		}
 	}
 }
 
@@ -470,13 +525,34 @@ const handleSearch = () => {
 	})
 }
 
-const handlePublish = (payload: PublishPayload) => {
-	publishPost(payload)
+const handlePublish = async (payload: PublishPayload) => {
+	await publishPost(payload)
 	router.push({ name: 'home' })
 }
 
-const handleSaveEditedPost = (payload: PublishPayload) => {
-	saveEditedPost(editingPostId.value, payload)
+const handleSaveEditedPost = async (payload: PublishPayload) => {
+	if (!ensureLoggedIn() || !loginUser.value) return
+
+	const postId = editingPostId.value
+	if (!postId) return
+
+	const targetPost = posts.value.find((item) => item.id === postId)
+	if (!targetPost) {
+		router.replace({ name: 'home' })
+		return
+	}
+
+	const isAuthor = targetPost.authorId
+		? targetPost.authorId === loginUser.value.id
+		: targetPost.author === loginUser.value.name
+
+	if (!isAuthor) {
+		window.alert('仅作者可编辑该帖子')
+		router.replace({ name: 'detail', params: { id: String(postId) } })
+		return
+	}
+
+	await saveEditedPost(editingPostId.value, payload)
 	router.push({ name: 'profile', query: { menu: '0' } })
 }
 
@@ -574,6 +650,51 @@ watch(
 	},
 	{ immediate: true }
 )
+
+watch(
+	() => [route.name, route.params.id, loginUser.value?.id, posts.value.length],
+	() => {
+		if (route.name !== 'edit') return
+		if (!loginUser.value) return
+
+		const routePostId = Number(route.params.id)
+		if (!Number.isFinite(routePostId)) {
+			router.replace({ name: 'home' })
+			return
+		}
+
+		const targetPost = posts.value.find((item) => item.id === routePostId)
+		if (!targetPost) {
+			router.replace({ name: 'home' })
+			return
+		}
+
+		const isAuthor = targetPost.authorId
+			? targetPost.authorId === loginUser.value.id
+			: targetPost.author === loginUser.value.name
+
+		if (!isAuthor) {
+			window.alert('仅作者可编辑该帖子')
+			router.replace({ name: 'detail', params: { id: String(routePostId) } })
+		}
+	},
+	{ immediate: true }
+)
+
+watch(
+	() => [isLoggedIn.value, route.query.redirect],
+	() => {
+		if (!isLoggedIn.value && typeof route.query.redirect === 'string') {
+			openLoginModal()
+			return
+		}
+
+		if (!isLoggedIn.value) return
+		const redirectTarget = route.query.redirect
+		if (typeof redirectTarget !== 'string' || !redirectTarget.startsWith('/')) return
+		router.replace(redirectTarget)
+	}
+)
 </script>
 
 <template>
@@ -594,10 +715,12 @@ watch(
 		/>
 
 		<HomeContent
-			v-if="currentPage === 'home'"
+			v-if="currentPage === 'home' && isCommunityReady"
 			:posts="filteredHomePosts"
 			:quick-actions="quickActions"
 			:search-keyword="searchKeyword"
+			:is-searching="isSearching"
+			:search-error="searchError"
 			@go-publish="goPublish"
 			@open-detail="openPostDetail"
 			@open-comment-detail="openPostDetailWithComment"
@@ -606,6 +729,10 @@ watch(
 			@toggle-post-follow="togglePostFollow"
 			@open-author-profile="openAuthorProfile"
 		/>
+
+		<main v-else-if="!isCommunityReady" class="loading-box">
+			{{ communityError || '正在加载社区数据...' }}
+		</main>
 
 		<ProfileContent
 			v-else-if="currentPage === 'profile'"
@@ -708,5 +835,16 @@ body {
 
 .page {
 	min-height: 100vh;
+}
+
+.loading-box {
+	max-width: 1180px;
+	margin: 20px auto;
+	padding: 36px 20px;
+	border-radius: 12px;
+	border: 1px solid #e9edf3;
+	background: #fff;
+	color: #6f7890;
+	text-align: center;
 }
 </style>

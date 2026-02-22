@@ -7,6 +7,8 @@ defineProps<{
 	posts: Post[]
 	quickActions: string[]
 	searchKeyword?: string
+	isSearching?: boolean
+	searchError?: string
 }>()
 
 const emit = defineEmits<{
@@ -23,6 +25,8 @@ const emit = defineEmits<{
 <template>
 	<main class="layout">
 		<section class="feed">
+			<div v-if="isSearching" class="search-tip">搜索中...</div>
+			<div v-else-if="searchError" class="search-tip warning">{{ searchError }}</div>
 			<template v-if="posts.length">
 				<HomePostCard
 					v-for="post in posts"
@@ -68,6 +72,21 @@ const emit = defineEmits<{
 	padding: 36px 20px;
 	text-align: center;
 	color: #9aa3b6;
+}
+
+.search-tip {
+	background: #eef3ff;
+	border: 1px solid #d9e4ff;
+	color: #3f5aa8;
+	border-radius: 10px;
+	padding: 10px 12px;
+	font-size: 13px;
+}
+
+.search-tip.warning {
+	background: #fff7ec;
+	border-color: #ffe0b8;
+	color: #a46a21;
 }
 
 @media (max-width: 1024px) {
