@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChatDotRound, Pointer, Star } from '@element-plus/icons-vue'
 import type { Post } from '../../types'
 
 defineProps<{
@@ -86,17 +87,20 @@ const getImageStyle = (image: string) => {
 
 		<div class="stats">
 			<button class="stats-btn" @click.stop="emit('open-comment-detail', post.id)">
-				💬 {{ post.comments }}
+				<el-icon><ChatDotRound /></el-icon>
+				{{ post.comments }}
 			</button>
 			<button class="stats-btn" :class="{ liked: post.isLiked }" @click.stop="emit('toggle-post-like', post.id)">
-				👍 {{ formatCount(post.likes) }}
+				<el-icon><Pointer /></el-icon>
+				{{ formatCount(post.likes) }}
 			</button>
 			<button
 				class="stats-btn"
 				:class="{ favorited: post.isFavorited }"
 				@click.stop="emit('toggle-post-favorite', post.id)"
 			>
-				⭐ {{ post.isFavorited ? '已收藏' : '收藏' }}
+				<el-icon><Star /></el-icon>
+				{{ post.isFavorited ? '已收藏' : '收藏' }}
 			</button>
 		</div>
 	</article>
@@ -253,6 +257,9 @@ const getImageStyle = (image: string) => {
 	font: inherit;
 	color: inherit;
 	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .stats-btn.liked {

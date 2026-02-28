@@ -10,7 +10,12 @@ import ArticleDetailContent from './components/ArticleDetailContent.vue'
 import LoginModal from './components/LoginModal.vue'
 import RegisterModal from './components/RegisterModal.vue'
 import AdminConsole from './components/admin/AdminConsole.vue'
-import { DEFAULT_COMMUNITY_STATS, recommendPostsApi, searchPostsApi } from './api/community'
+import {
+	DEFAULT_COMMUNITY_STATS,
+	getUserProfileStatsApi,
+	recommendPostsApi,
+	searchPostsApi
+} from './api/community'
 import { useAuthState } from './composables/useAuthState'
 import { useCommunityState } from './composables/useCommunityState'
 import type {
@@ -94,6 +99,8 @@ const visibleHomePostCount = ref(HOME_PAGE_SIZE)
 const isLoadingMoreHomePosts = ref(false)
 const homeFeedPage = ref(1)
 const homeFeedHasMore = ref(false)
+const otherProfileTotalLikes = ref<number | null>(null)
+const profileStatsRequestId = ref(0)
 
 const {
 	showLoginModal,
@@ -128,6 +135,7 @@ const {
 	interactionTestData,
 	posts,
 	comments,
+	notifications,
 	isCommunityReady,
 	communityError,
 	initCommunityData,
@@ -192,7 +200,7 @@ const goProfileCenter = () => {
 const openProfileEdit = () => {
 	if (!isLoggedIn.value || !loginUser.value) return
 	viewedProfileUser.value = { ...loginUser.value }
-	router.push({ name: 'profile', query: { menu: '5' } })
+	router.push({ name: 'profile', query: { menu: '6' } })
 }
 
 const openAuthorProfile = (payload: { userId?: number; userName: string; avatarText: string }) => {
@@ -417,6 +425,40 @@ const profileComments = computed<UserCommentRecord[]>(() => {
 const profileFavoritePosts = computed(() => (isSelfProfile.value ? myFavoritePosts.value : []))
 const profileFans = computed<UserSimpleProfile[]>(() => (isSelfProfile.value ? myFans.value : []))
 const profileFollowings = computed<UserSimpleProfile[]>(() => (isSelfProfile.value ? myFollowings.value : []))
+const profileNotifications = computed(() => (isSelfProfile.value ? notifications.value : []))
+const profileTotalLikes = computed(() => {
+	if (!isSelfProfile.value && typeof otherProfileTotalLikes.value === 'number') {
+		return otherProfileTotalLikes.value
+	}
+	const postLikes = profilePosts.value.reduce((sum, item) => sum + (item.likes || 0), 0)
+	const commentLikes = profileComments.value.reduce((sum, item) => sum + (item.likes || 0), 0)
+	return postLikes + commentLikes
+})
+
+const loadOtherProfileStats = async (userId: number) => {
+	const currentRequestId = profileStatsRequestId.value + 1
+	profileStatsRequestId.value = currentRequestId
+	try {
+		const stats = await getUserProfileStatsApi(userId)
+		if (profileStatsRequestId.value !== currentRequestId) return
+		otherProfileTotalLikes.value = stats.totalLikes
+		if (viewedProfileUser.value && viewedProfileUser.value.id === userId) {
+			viewedProfileUser.value = {
+				...viewedProfileUser.value,
+				name: stats.name,
+				email: stats.email,
+				avatarText: stats.avatarText,
+				avatarUrl: stats.avatarUrl,
+				gender: stats.gender,
+				fans: stats.fans,
+				follows: stats.follows
+			}
+		}
+	} catch {
+		if (profileStatsRequestId.value !== currentRequestId) return
+		otherProfileTotalLikes.value = null
+	}
+}
 
 const isProfileFollowed = computed(() => {
 	if (!profileUser.value) return false
@@ -466,6 +508,10 @@ const postMapById = computed(() => {
 const resolvePostList = (list: Post[]) =>
 	list.map((item) => postMapById.value.get(item.id) ?? item)
 
+const approvedPosts = computed(() =>
+	posts.value.filter((item) => (item.moderationStatus || 'approved') === 'approved')
+)
+
 const navFilteredPosts = computed(() => {
 	if (activeNav.value === '推荐' && serverRecommendedPosts.value && serverRecommendedPosts.value.length) {
 		return resolvePostList(serverRecommendedPosts.value)
@@ -481,22 +527,22 @@ const navFilteredPosts = computed(() => {
 	}
 
 	if (activeNav.value === '热门') {
-		return sortByLikesDesc(posts.value)
+		return sortByLikesDesc(approvedPosts.value)
 	}
 
 	if (activeNav.value === '更新') {
-		return sortByDateDesc(posts.value)
+		return sortByDateDesc(approvedPosts.value)
 	}
 
 	if (activeNav.value === '关注') {
-		return posts.value.filter(
+		return approvedPosts.value.filter(
 			(post) =>
 				post.isFollowingAuthor ||
 				(post.authorId ? interactionTestData.value.followedAuthorIds.includes(post.authorId) : false)
 		)
 	}
 
-	return getRecommendedPosts(posts.value)
+	return getRecommendedPosts(approvedPosts.value)
 })
 
 const localFilteredHomePosts = computed(() => {
@@ -709,9 +755,10 @@ const handleLogout = async () => {
 
 watch(
 	[() => route.fullPath, () => loginUser.value],
-	() => {
+	async () => {
 		if (route.name !== 'profile') {
 			viewedProfileUser.value = null
+			otherProfileTotalLikes.value = null
 			return
 		}
 
@@ -721,6 +768,7 @@ watch(
 
 		if (!routeUserIdRaw && !routeUserNameRaw) {
 			viewedProfileUser.value = loginUser.value ? { ...loginUser.value } : null
+			otherProfileTotalLikes.value = null
 			return
 		}
 
@@ -730,6 +778,7 @@ watch(
 
 		if (loginUser.value && (routeUserId === loginUser.value.id || routeUserName === loginUser.value.name)) {
 			viewedProfileUser.value = { ...loginUser.value }
+			otherProfileTotalLikes.value = null
 			return
 		}
 
@@ -755,6 +804,9 @@ watch(
 			avatarText: profileAvatar,
 			fans: 0,
 			follows: 0
+		}
+		if (Number.isFinite(profileId)) {
+			await loadOtherProfileStats(profileId)
 		}
 	},
 	{ immediate: true }
@@ -826,17 +878,23 @@ watch(
 	() => isAdminRoute.value,
 	async (value) => {
 		if (value) return
-		if (isCommunityReady.value) return
 		await initCommunityData()
 	}
 )
 
 watch(
-	() => [userTestData.value.fans.length, userTestData.value.followings.length, loginUser.value?.id],
+	() => [
+		userTestData.value.fansTotal,
+		userTestData.value.followingsTotal,
+		userTestData.value.fans.length,
+		userTestData.value.followings.length,
+		loginUser.value?.id
+	],
 	() => {
 		if (!loginUser.value) return
-		loginUser.value.fans = userTestData.value.fans.length
-		loginUser.value.follows = userTestData.value.followings.length
+		loginUser.value.fans = userTestData.value.fansTotal ?? userTestData.value.fans.length
+		loginUser.value.follows =
+			userTestData.value.followingsTotal ?? userTestData.value.followings.length
 	},
 	{ immediate: true }
 )
@@ -936,11 +994,13 @@ watch(
 			:is-profile-followed="isProfileFollowed"
 			:can-follow-profile="canFollowProfile"
 			:active-profile-menu="activeProfileMenu"
+			:total-likes="profileTotalLikes"
 			:my-posts="profilePosts"
 			:my-comments="profileComments"
 			:my-favorite-posts="profileFavoritePosts"
 			:my-fans="profileFans"
 			:my-followings="profileFollowings"
+			:notifications="profileNotifications"
 			@update:active-profile-menu="setActiveProfileMenu"
 			@open-detail="openPostDetail"
 			@edit-post="goEditPost"

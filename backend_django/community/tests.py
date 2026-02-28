@@ -143,3 +143,54 @@ class CommunityApiTests(TestCase):
         self.assertEqual(user.username, 'after_name')
         self.assertEqual(user.profile.avatar_url, 'https://example.com/avatar.png')
         self.assertEqual(user.profile.gender, 'female')
+
+    def test_bootstrap_contains_my_post_status_and_notifications(self):
+        admin = User.objects.create_user(
+            username='admin2',
+            email='admin2@example.com',
+            password='123456',
+            is_staff=True,
+            is_superuser=True,
+        )
+        group, _ = Group.objects.get_or_create(name='super_admin')
+        admin.groups.add(group)
+
+        author = User.objects.create_user(username='owner_u', email='owner@example.com', password='123456')
+        post = Post.objects.create(author=author, title='我的帖子', summary='s', content_html='c')
+
+        self.client.force_login(admin)
+        review_resp = self._post_json(
+            f'/api/admin/moderation/posts/{post.id}/review',
+            {'action': 'offline', 'reason': '违规示例'},
+        )
+        self.assertEqual(review_resp.status_code, 200)
+
+        self.client.force_login(author)
+        bootstrap = self.client.get('/api/community/bootstrap')
+        self.assertEqual(bootstrap.status_code, 200)
+        data = bootstrap.json()['data']
+
+        owner_post = next((p for p in data['posts'] if p['id'] == post.id), None)
+        self.assertIsNotNone(owner_post)
+        self.assertEqual(owner_post['moderationStatus'], 'offline')
+
+        notifications = data.get('notifications') or []
+        self.assertTrue(
+            any(item.get('action') == 'post.review' and item.get('targetId') == post.id for item in notifications)
+        )
+
+    def test_community_user_profile_stats(self):
+        target = User.objects.create_user(username='target_u', email='target@example.com', password='123456')
+        fan = User.objects.create_user(username='fan_u', email='fan@example.com', password='123456')
+        Follow.objects.create(follower=fan, followee=target)
+
+        authored_post = Post.objects.create(author=target, title='A', summary='S', content_html='C', likes_count=11)
+        Comment.objects.create(post=authored_post, author=target, content='x', likes_count=7)
+
+        response = self.client.get(f'/api/community/users/{target.id}/profile')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+
+        self.assertEqual(data['fans'], 1)
+        self.assertEqual(data['follows'], 0)
+        self.assertEqual(data['totalLikes'], 18)

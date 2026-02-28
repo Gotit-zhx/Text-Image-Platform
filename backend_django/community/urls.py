@@ -11,6 +11,7 @@ urlpatterns = [
     path('admin/auth/me', views.admin_auth_me),
     path('users/me', views.users_me),
     path('users/me/profile', views.users_me_profile_update),
+    path('community/users/<int:user_id>/profile', views.community_user_profile),
     path('admin/dashboard/overview', views.admin_dashboard_overview),
     path('admin/moderation/posts', views.admin_posts),
     path('admin/moderation/posts/<int:post_id>', views.admin_post_detail),

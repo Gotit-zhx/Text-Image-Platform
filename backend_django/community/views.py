@@ -5,6 +5,8 @@ from pathlib import Path
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Group, User
+from django.db.models import Q
+from django.db import models
 from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from django.utils.timezone import localtime
@@ -15,6 +17,22 @@ from .models import AuditLog, Comment, CommentLike, Follow, Post, PostInteractio
 from .http import api_error, api_success
 from .recommendation import recommended_post_ids_for_user
 from .recsys_pipeline import get_recsys_status_path
+
+ADMIN_SESSION_KEY = 'community_admin_user_id'
+
+
+def _get_admin_session_user(request: HttpRequest):
+    admin_user_id = request.session.get(ADMIN_SESSION_KEY)
+    if admin_user_id:
+        admin_user = User.objects.filter(id=admin_user_id, is_staff=True, is_active=True).first()
+        if admin_user:
+            return admin_user
+        request.session.pop(ADMIN_SESSION_KEY, None)
+
+    if request.user.is_authenticated and request.user.is_staff and request.user.is_active:
+        return request.user
+
+    return None
 
 
 def api_login_required(view_func):
@@ -30,10 +48,10 @@ def api_login_required(view_func):
 def api_admin_required(view_func):
     @wraps(view_func)
     def _wrapped(request: HttpRequest, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return api_error(request, '未登录', status=401)
-        if not request.user.is_staff or not request.user.is_active:
+        admin_user = _get_admin_session_user(request)
+        if not admin_user:
             return api_error(request, '无权限执行该操作', status=403)
+        request.admin_user = admin_user
         return view_func(request, *args, **kwargs)
 
     return _wrapped
@@ -100,8 +118,12 @@ def _ensure_default_admin():
 
 
 def _write_audit_log(request: HttpRequest, action: str, target_type: str, target_id: int, detail: dict | None = None):
+    actor = getattr(request, 'admin_user', None)
+    if not actor and request.user.is_authenticated:
+        actor = request.user
+
     AuditLog.objects.create(
-        actor=request.user if request.user.is_authenticated else None,
+        actor=actor,
         action=action,
         target_type=target_type,
         target_id=target_id,
@@ -173,10 +195,68 @@ def _serialize_post(post: Post, viewer: User | None):
         'images': post.images,
         'comments': post.comments_count,
         'likes': post.likes_count,
+        'moderationStatus': post.moderation_status,
+        'reviewReason': post.review_reason,
         'isLiked': is_liked,
         'isFavorited': is_favorited,
         'isFollowingAuthor': is_following_author,
     }
+
+
+def _build_user_notifications(viewer: User):
+    if not viewer or not viewer.is_authenticated:
+        return []
+
+    my_post_ids = list(Post.objects.filter(author=viewer).values_list('id', flat=True))
+    my_comment_ids = list(Comment.objects.filter(author=viewer).values_list('id', flat=True))
+
+    target_filter = Q(target_type='user', target_id=viewer.id)
+    if my_post_ids:
+        target_filter |= Q(target_type='post', target_id__in=my_post_ids)
+    if my_comment_ids:
+        target_filter |= Q(target_type='comment', target_id__in=my_comment_ids)
+
+    logs = (
+        AuditLog.objects.select_related('actor')
+        .filter(target_filter)
+        .exclude(actor_id=viewer.id)
+        .order_by('-created_at')[:50]
+    )
+
+    action_title_map = {
+        'post.review': '帖子审核状态变更',
+        'comment.hide': '评论被隐藏',
+        'comment.restore': '评论已恢复',
+        'comment.delete': '评论被删除',
+        'user.roles.update': '账号角色变更',
+    }
+
+    items = []
+    for log in logs:
+        title = action_title_map.get(log.action, '账号相关操作通知')
+        detail = log.detail if isinstance(log.detail, dict) else {}
+        reason = (detail.get('reason') or '').strip() if isinstance(detail.get('reason'), str) else ''
+        action_text = (detail.get('action') or '').strip() if isinstance(detail.get('action'), str) else ''
+        content = f'后台执行了 {log.action} 操作。'
+        if action_text:
+            content = f'后台执行了 {log.action}（{action_text}）操作。'
+        if reason:
+            content = f'{content} 原因：{reason}'
+
+        items.append(
+            {
+                'id': log.id,
+                'title': title,
+                'content': content,
+                'time': localtime(log.created_at).strftime('%m-%d %H:%M'),
+                'action': log.action,
+                'targetType': log.target_type,
+                'targetId': log.target_id,
+                'actorName': log.actor.username if log.actor else '',
+            }
+        )
+
+    return items
 
 
 def _serialize_comment(comment: Comment, viewer: User | None):
@@ -377,6 +457,23 @@ def users_me(request: HttpRequest):
     return api_success(request, _user_to_login_payload(request.user))
 
 
+@require_GET
+def community_user_profile(request: HttpRequest, user_id: int):
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return api_error(request, '用户不存在', status=404)
+
+    payload = _user_to_login_payload(user)
+    total_likes = (
+        Post.objects.filter(author=user).aggregate(total=models.Sum('likes_count')).get('total') or 0
+    ) + (
+        Comment.objects.filter(author=user).aggregate(total=models.Sum('likes_count')).get('total') or 0
+    )
+
+    payload['totalLikes'] = int(total_likes)
+    return api_success(request, payload)
+
+
 @csrf_exempt
 @require_http_methods(['PUT'])
 @api_login_required
@@ -412,9 +509,17 @@ def community_bootstrap(request: HttpRequest):
     _seed_demo_data()
 
     viewer = request.user if request.user.is_authenticated else None
+    post_queryset = Post.objects.select_related('author', 'author__profile').all()
+    if viewer and viewer.is_authenticated:
+        post_queryset = post_queryset.filter(
+            Q(moderation_status=Post.MODERATION_APPROVED) | Q(author_id=viewer.id)
+        )
+    else:
+        post_queryset = post_queryset.filter(moderation_status=Post.MODERATION_APPROVED)
+
     posts = [
         _serialize_post(post, viewer)
-        for post in Post.objects.filter(moderation_status=Post.MODERATION_APPROVED).select_related('author', 'author__profile').all()
+        for post in post_queryset
     ]
     comments = [
         _serialize_comment(comment, viewer)
@@ -437,10 +542,12 @@ def community_bootstrap(request: HttpRequest):
             {'id': u.id, 'name': u.username, 'avatarText': u.username[:1] or 'U'}
             for u in followed_users
         ]
+        followings_total = len(followed_author_ids)
 
         user_comments = [c for c in comments if c['authorId'] == viewer.id]
     else:
         user_comments = []
+        followings_total = 0
 
     user_comment_post_ids = {c['postId'] for c in user_comments}
     post_title_map = {
@@ -452,6 +559,8 @@ def community_bootstrap(request: HttpRequest):
         {'id': u.id, 'name': u.username, 'avatarText': u.username[:1] or 'U'}
         for u in User.objects.filter(following_relations__followee=viewer)[:30]
     ] if viewer else []
+    fans_total = Follow.objects.filter(followee=viewer).count() if viewer else 0
+    notifications = _build_user_notifications(viewer) if viewer else []
 
     return api_success(
         request,
@@ -459,6 +568,8 @@ def community_bootstrap(request: HttpRequest):
             'userTestData': {
                 'fans': fans,
                 'followings': followings,
+                'fansTotal': fans_total,
+                'followingsTotal': followings_total,
                 'comments': [
                     {
                         'id': c['id'],
@@ -479,6 +590,7 @@ def community_bootstrap(request: HttpRequest):
             },
             'posts': posts,
             'comments': comments,
+            'notifications': notifications,
         },
     )
 
@@ -790,7 +902,8 @@ def admin_auth_login(request: HttpRequest):
     if not auth_user.is_staff or not auth_user.is_active:
         return api_error(request, '非管理员账号', status=403)
 
-    login(request, auth_user)
+    request.session[ADMIN_SESSION_KEY] = auth_user.id
+    request.session.modified = True
     return api_success(request, _user_to_login_payload(auth_user))
 
 
@@ -798,14 +911,15 @@ def admin_auth_login(request: HttpRequest):
 @require_http_methods(['POST'])
 @api_admin_required
 def admin_auth_logout(request: HttpRequest):
-    logout(request)
+    request.session.pop(ADMIN_SESSION_KEY, None)
+    request.session.modified = True
     return api_success(request, {'success': True})
 
 
 @require_GET
 @api_admin_required
 def admin_auth_me(request: HttpRequest):
-    return api_success(request, _user_to_login_payload(request.user))
+    return api_success(request, _user_to_login_payload(request.admin_user))
 
 
 @require_GET
@@ -897,7 +1011,7 @@ def admin_post_review(request: HttpRequest, post_id: int):
 
     post.moderation_status = action_to_status[action]
     post.review_reason = reason
-    post.reviewed_by = request.user
+    post.reviewed_by = request.admin_user
     post.reviewed_at = timezone.now()
     post.save(update_fields=['moderation_status', 'review_reason', 'reviewed_by', 'reviewed_at'])
     _write_audit_log(request, 'post.review', 'post', post.id, {'action': action, 'reason': reason})
@@ -908,7 +1022,7 @@ def admin_post_review(request: HttpRequest, post_id: int):
             'id': post.id,
             'status': post.moderation_status,
             'reviewReason': post.review_reason,
-            'reviewedBy': request.user.username,
+            'reviewedBy': request.admin_user.username,
             'reviewedAt': localtime(post.reviewed_at).isoformat() if post.reviewed_at else None,
         },
     )
@@ -1012,7 +1126,7 @@ def admin_users(request: HttpRequest):
 @require_http_methods(['PUT'])
 @api_admin_required
 def admin_user_roles(request: HttpRequest, user_id: int):
-    if not request.user.is_superuser:
+    if not request.admin_user.is_superuser:
         return api_error(request, '仅超级管理员可修改角色', status=403)
     data = _json_body(request)
     role_names = data.get('roles') or []

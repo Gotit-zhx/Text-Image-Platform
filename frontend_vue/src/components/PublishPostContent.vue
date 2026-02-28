@@ -113,13 +113,13 @@ const handlePublish = () => {
 
 	if (props.mode === 'edit') {
 		emit('save-edit', payload)
-		submitTip.value = '保存成功（模拟）'
+		submitTip.value = '保存成功'
 		return
 	}
 
 	emit('publish', payload)
 
-	submitTip.value = '发布成功（模拟）'
+	submitTip.value = '发布成功'
 	title.value = ''
 	content.value = ''
 	tagInput.value = ''
@@ -148,7 +148,7 @@ watch(
 			<div class="form-row">
 				<label>标题：</label>
 				<div class="field-wrap">
-					<input v-model="title" maxlength="30" type="text" placeholder="标题(必填)" />
+					<el-input v-model="title" maxlength="30" show-word-limit placeholder="标题(必填)" />
 					<span class="counter">{{ titleCount }}/30</span>
 				</div>
 			</div>
@@ -175,25 +175,29 @@ watch(
 				<label>设置标签：</label>
 				<div class="field-wrap tag-wrap">
 					<div class="tag-input-row">
-						<input
+						<el-input
 							v-model="tagInput"
-							type="text"
 							placeholder="输入标签后点击添加"
 							@keydown.enter.prevent="handleAddTag"
 						/>
-						<button class="tag-add-btn" type="button" @click="handleAddTag">添加</button>
+						<el-button class="tag-add-btn" type="primary" plain @click="handleAddTag">添加</el-button>
 					</div>
 					<div v-if="tags.length" class="tag-list">
-						<span v-for="(item, idx) in tags" :key="`${item}-${idx}`" class="tag-chip">
+						<el-tag
+							v-for="(item, idx) in tags"
+							:key="`${item}-${idx}`"
+							class="tag-chip"
+							closable
+							@close="handleRemoveTag(idx)"
+						>
 							{{ item }}
-							<button type="button" class="tag-remove" @click="handleRemoveTag(idx)">×</button>
-						</span>
+						</el-tag>
 					</div>
 				</div>
 			</div>
 
 			<div class="submit-wrap">
-				<button class="submit-btn" @click="handlePublish">{{ mode === 'edit' ? '保存修改' : '发布' }}</button>
+				<el-button class="submit-btn" type="primary" @click="handlePublish">{{ mode === 'edit' ? '保存修改' : '发布' }}</el-button>
 			</div>
 			<p v-if="submitTip" class="submit-tip">{{ submitTip }}</p>
 		</section>
@@ -240,18 +244,8 @@ watch(
 	position: relative;
 }
 
-.field-wrap input {
-	width: 100%;
-	height: 40px;
-	border: 1px solid #e3e7ef;
-	border-radius: 4px;
-	padding: 0 12px;
-	font-size: 14px;
-	outline: none;
-}
-
-.field-wrap input:focus {
-	border-color: #87c6ff;
+:deep(.field-wrap .el-input__wrapper) {
+	min-height: 40px;
 }
 
 .counter {
@@ -305,19 +299,13 @@ watch(
 	gap: 8px;
 }
 
-.tag-input-row input {
+.tag-input-row :deep(.el-input) {
 	flex: 1;
 }
 
 .tag-add-btn {
 	width: 64px;
 	height: 40px;
-	border: 1px solid #8fd2ff;
-	border-radius: 4px;
-	background: #f2fbff;
-	color: #18a8f2;
-	cursor: pointer;
-	font-size: 13px;
 }
 
 .tag-list {
@@ -328,24 +316,7 @@ watch(
 }
 
 .tag-chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 4px 8px;
 	border-radius: 999px;
-	background: #eef7ff;
-	color: #2f7fc6;
-	font-size: 12px;
-}
-
-.tag-remove {
-	border: none;
-	background: transparent;
-	color: #6b90b5;
-	cursor: pointer;
-	line-height: 1;
-	font-size: 14px;
-	padding: 0;
 }
 
 .submit-wrap {
@@ -367,8 +338,27 @@ watch(
 
 .submit-tip {
 	margin: 12px 0 0;
+	height: 36px;
+	font-size: 12px;
+	line-height: 36px;
 	text-align: center;
-	font-size: 13px;
-	color: #18b0ff;
+	color: #8a95a8;
 }
+
+@media (max-width: 768px) {
+	.form-row {
+		grid-template-columns: 1fr;
+		padding: 16px;
+		gap: 8px;
+	}
+
+	.form-row > label {
+		line-height: 1.2;
+	}
+
+	.tag-wrap {
+		max-width: none;
+	}
+}
+
 </style>

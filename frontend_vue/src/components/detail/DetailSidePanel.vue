@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChatDotRound, Pointer, Star } from '@element-plus/icons-vue'
 defineProps<{
 	isLiked?: boolean
 	likeCount?: number
@@ -25,16 +26,20 @@ const emit = defineEmits<{
 
 		<div class="action-card">
 			<button class="action-item" :class="{ liked: isLiked }" title="点赞" @click="emit('toggle-like')">
-				👍 {{ likeCount ?? 0 }}
+				<el-icon><Pointer /></el-icon>
+				{{ likeCount ?? 0 }}
 			</button>
-			<button class="action-item" title="评论" @click="emit('comment-click')">💬</button>
+			<button class="action-item" title="评论" @click="emit('comment-click')">
+				<el-icon><ChatDotRound /></el-icon>
+			</button>
 			<button
 				class="action-item"
 				:class="{ favorited: isFavorited }"
 				title="收藏"
 				@click="emit('toggle-favorite')"
 			>
-				⭐ {{ isFavorited ? '已收藏' : '收藏' }}
+				<el-icon><Star /></el-icon>
+				{{ isFavorited ? '已收藏' : '收藏' }}
 			</button>
 		</div>
 	</aside>
@@ -100,6 +105,10 @@ const emit = defineEmits<{
 	background: #f9fbfe;
 	cursor: pointer;
 	font-size: 14px;
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	gap: 4px;
 }
 
 .action-item.liked {

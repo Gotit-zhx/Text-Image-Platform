@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Pointer } from '@element-plus/icons-vue'
 import { computed, nextTick, ref } from 'vue'
 import type { CommentRecord } from '../../types'
 
@@ -110,7 +111,8 @@ defineExpose({
 							:class="{ liked: item.isLiked }"
 							@click="emit('toggle-comment-like', item.id)"
 						>
-							👍 {{ item.likes }}
+							<el-icon><Pointer /></el-icon>
+							{{ item.likes }}
 						</button>
 						<button
 							v-if="item.isMine"
@@ -289,6 +291,9 @@ defineExpose({
 	font: inherit;
 	color: inherit;
 	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .comment-like-btn.liked {

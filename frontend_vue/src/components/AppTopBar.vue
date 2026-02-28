@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Search } from '@element-plus/icons-vue'
 import type { LoginUser } from '../types'
 
 defineProps<{
@@ -18,6 +19,10 @@ const emit = defineEmits<{
 	(e: 'update:searchKeyword', value: string): void
 	(e: 'search'): void
 }>()
+
+const handleSearchKeywordChange = (value: unknown) => {
+	emit('update:searchKeyword', String(value || ''))
+}
 </script>
 
 <template>
@@ -45,14 +50,18 @@ const emit = defineEmits<{
 
 			<div class="topbar-right">
 				<div class="search">
-					<input
-						:value="searchKeyword"
-						type="text"
+					<el-input
+						:model-value="searchKeyword"
 						placeholder="搜索文章/作者/标签"
-						@input="emit('update:searchKeyword', ($event.target as HTMLInputElement).value)"
-						@keydown.enter="emit('search')"
-					/>
-					<button type="button" class="search-btn" @click="emit('search')">🔍</button>
+						class="search-input"
+						@update:model-value="handleSearchKeywordChange"
+						@keyup.enter="emit('search')"
+					>
+						<template #prefix>
+							<el-icon><Search /></el-icon>
+						</template>
+					</el-input>
+					<el-button type="primary" class="search-btn" :icon="Search" circle @click="emit('search')" />
 				</div>
 				<div v-if="isLoggedIn" class="user-entry">
 					<div class="avatar" @click="emit('go-profile')">
@@ -78,10 +87,10 @@ const emit = defineEmits<{
 							</div>
 						</div>
 						<div class="user-menu">
-							<a href="#" @click.prevent="emit('go-profile')">个人中心</a>
+							<el-button link type="primary" @click="emit('go-profile')">个人中心</el-button>
 						</div>
 						<div class="user-menu logout-area">
-							<a href="#" @click.prevent="emit('logout')">退出登录</a>
+							<el-button link type="danger" @click="emit('logout')">退出登录</el-button>
 						</div>
 					</div>
 				</div>
@@ -171,38 +180,39 @@ const emit = defineEmits<{
 }
 
 .search {
-	width: 220px;
-	height: 30px;
-	border-radius: 999px;
+	width: 300px;
 	display: flex;
 	align-items: center;
-	padding: 0 4px 0 10px;
-	background: rgba(255, 255, 255, 0.14);
+	gap: 8px;
 }
 
-.search input {
+.search-input {
 	flex: 1;
-	height: 100%;
-	border: none;
-	background: transparent;
-	outline: none;
-	color: #eef3ff;
-	font-size: 12px;
-}
-
-.search input::placeholder {
-	color: rgba(238, 243, 255, 0.7);
 }
 
 .search-btn {
-	width: 24px;
-	height: 24px;
-	border: none;
-	border-radius: 50%;
-	background: transparent;
+	--el-button-bg-color: #3a78ff;
+	--el-button-border-color: #3a78ff;
+	--el-button-hover-bg-color: #4c87ff;
+	--el-button-hover-border-color: #4c87ff;
+}
+
+:deep(.search-input .el-input__wrapper) {
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.14);
+	box-shadow: none;
+}
+
+:deep(.search-input .el-input__inner) {
 	color: #eef3ff;
-	cursor: pointer;
-	padding: 0;
+}
+
+:deep(.search-input .el-input__inner::placeholder) {
+	color: rgba(238, 243, 255, 0.7);
+}
+
+:deep(.search-input .el-input__prefix-inner) {
+	color: rgba(238, 243, 255, 0.8);
 }
 
 .avatar {
@@ -317,6 +327,8 @@ const emit = defineEmits<{
 .user-menu {
 	padding: 12px 0;
 	border-bottom: 1px solid #edf0f5;
+	display: flex;
+	justify-content: center;
 }
 
 .user-menu a {

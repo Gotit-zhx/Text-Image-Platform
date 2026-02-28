@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChatDotRound, Pointer, Star } from '@element-plus/icons-vue'
 import type { Post } from '../../types'
 
 defineProps<{
@@ -36,6 +37,20 @@ const getImageStyle = (image: string) => {
 		backgroundPosition: 'center'
 	}
 }
+
+const statusLabelMap: Record<string, string> = {
+	pending: '待审核',
+	approved: '已通过',
+	rejected: '已驳回',
+	offline: '已下架'
+}
+
+const statusTypeMap: Record<string, 'info' | 'success' | 'warning' | 'danger'> = {
+	pending: 'warning',
+	approved: 'success',
+	rejected: 'danger',
+	offline: 'info'
+}
 </script>
 
 <template>
@@ -58,6 +73,13 @@ const getImageStyle = (image: string) => {
 							{{ post.author }}
 						</span>
 						<span class="time">{{ post.time }}</span>
+						<el-tag
+							v-if="post.moderationStatus"
+							size="small"
+							:type="statusTypeMap[post.moderationStatus] || 'info'"
+						>
+							{{ statusLabelMap[post.moderationStatus] || post.moderationStatus }}
+						</el-tag>
 					</div>
 					<h3 class="title">{{ post.title }}</h3>
 				</div>
@@ -85,17 +107,20 @@ const getImageStyle = (image: string) => {
 
 		<div class="stats">
 			<button class="stats-btn" @click.stop="emit('open-comment-detail', post.id)">
-				💬 {{ post.comments }}
+				<el-icon><ChatDotRound /></el-icon>
+				{{ post.comments }}
 			</button>
 			<button class="stats-btn" :class="{ liked: post.isLiked }" @click.stop="emit('toggle-post-like', post.id)">
-				👍 {{ formatCount(post.likes) }}
+				<el-icon><Pointer /></el-icon>
+				{{ formatCount(post.likes) }}
 			</button>
 			<button
 				class="stats-btn"
 				:class="{ favorited: post.isFavorited }"
 				@click.stop="emit('toggle-post-favorite', post.id)"
 			>
-				⭐ {{ post.isFavorited ? '已收藏' : '收藏' }}
+				<el-icon><Star /></el-icon>
+				{{ post.isFavorited ? '已收藏' : '收藏' }}
 			</button>
 		</div>
 	</article>
@@ -246,6 +271,9 @@ const getImageStyle = (image: string) => {
 	font: inherit;
 	color: inherit;
 	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .stats-btn.liked {

@@ -12,9 +12,22 @@ export type Post = {
 	images: string[]
 	comments: number
 	likes: number
+	moderationStatus?: 'pending' | 'approved' | 'rejected' | 'offline'
+	reviewReason?: string
 	isLiked?: boolean
 	isFavorited?: boolean
 	isFollowingAuthor?: boolean
+}
+
+export type UserNotificationItem = {
+	id: number
+	title: string
+	content: string
+	time: string
+	action: string
+	targetType: string
+	targetId: number
+	actorName?: string
 }
 
 export type LoginUser = {
@@ -69,6 +82,8 @@ export type CommentRecord = {
 export type UserTestData = {
 	fans: UserSimpleProfile[]
 	followings: UserSimpleProfile[]
+	fansTotal?: number
+	followingsTotal?: number
 	comments: UserCommentRecord[]
 	favoritePostIds: number[]
 }

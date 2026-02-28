@@ -25,7 +25,7 @@ import { clearSessionUser, readSessionUser, writeSessionUser } from '../auth/ses
 const defaultPagination: Pagination = { total: 0, page: 1, pageSize: 10 }
 
 export const useAdminState = () => {
-	const adminUser = ref<LoginUser | null>(readSessionUser())
+	const adminUser = ref<LoginUser | null>(readSessionUser('admin'))
 	const loading = ref(false)
 	const error = ref('')
 
@@ -53,7 +53,7 @@ export const useAdminState = () => {
 		await withLoading(async () => {
 			const user = await adminLoginApi(account, password)
 			adminUser.value = user
-			writeSessionUser(user)
+			writeSessionUser(user, 'admin')
 			loggedUser = user
 		})
 		return loggedUser
@@ -63,11 +63,11 @@ export const useAdminState = () => {
 		try {
 			const user = await adminMeApi()
 			adminUser.value = user
-			writeSessionUser(user)
+			writeSessionUser(user, 'admin')
 			return user
 		} catch {
 			adminUser.value = null
-			clearSessionUser()
+			clearSessionUser('admin')
 			return null
 		}
 	}
@@ -77,7 +77,7 @@ export const useAdminState = () => {
 			await adminLogoutApi()
 		} finally {
 			adminUser.value = null
-			clearSessionUser()
+			clearSessionUser('admin')
 		}
 	}
 

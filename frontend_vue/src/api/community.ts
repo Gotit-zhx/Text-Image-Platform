@@ -1,5 +1,5 @@
 // 审查状态：部分完成（已接入搜索与初始化接口，写接口已提供服务端优先占位）
-import type { CommentRecord, InteractionTestData, Post, UserTestData } from '../types'
+import type { CommentRecord, InteractionTestData, LoginUser, Post, UserNotificationItem, UserTestData } from '../types'
 import { apiRequest } from './client'
 import type { PublishPayload } from '../types'
 
@@ -15,6 +15,7 @@ export type CommunitySeed = {
 	interactionTestData: InteractionTestData
 	posts: Post[]
 	comments: CommentRecord[]
+	notifications?: UserNotificationItem[]
 }
 
 export type PostsPagination = {
@@ -27,6 +28,10 @@ export type PostsPagination = {
 export type PagedPostsResult = {
 	posts: Post[]
 	pagination: PostsPagination
+}
+
+export type UserProfileStats = LoginUser & {
+	totalLikes: number
 }
 
 type PostDraft = {
@@ -82,6 +87,8 @@ const mockSeed: CommunitySeed = {
 			{ id: 4002, name: '纸页慢生活', avatarText: '纸' },
 			{ id: 4003, name: '山野日志', avatarText: '山' }
 		],
+		fansTotal: 4,
+		followingsTotal: 3,
 		comments: [
 			{
 				id: 7001,
@@ -237,6 +244,28 @@ const mockSeed: CommunitySeed = {
 			likes: 8,
 			isLiked: false,
 			isMine: true
+		}
+	],
+	notifications: [
+		{
+			id: 1,
+			title: '帖子审核通过',
+			content: '你发布的《城市夜景拍摄记录｜一条街拍到天亮》已通过审核。',
+			time: '02-21 10:22',
+			action: 'post.review',
+			targetType: 'post',
+			targetId: 101,
+			actorName: '管理员'
+		},
+		{
+			id: 2,
+			title: '评论被隐藏',
+			content: '你在《手账排版合集｜一周模板分享》下的一条评论被后台隐藏。',
+			time: '02-22 09:30',
+			action: 'comment.hide',
+			targetType: 'comment',
+			targetId: 9002,
+			actorName: '内容审核员'
 		}
 	]
 }
@@ -461,6 +490,25 @@ export const toggleCommentLikeApi = async (commentId: number, willLike: boolean)
 		method: 'POST',
 		body: JSON.stringify({ isLiked: willLike })
 	})
+}
+
+export const getUserProfileStatsApi = async (userId: number): Promise<UserProfileStats> => {
+	if (USE_MOCK_API) {
+		const postLikes = getMockCommunitySeed()
+			.posts.filter((item) => item.authorId === userId)
+			.reduce((sum, item) => sum + item.likes, 0)
+		return {
+			id: userId,
+			name: `用户${userId}`,
+			email: `demo_user_${userId}@example.com`,
+			avatarText: '用',
+			fans: 0,
+			follows: 0,
+			totalLikes: postLikes
+		}
+	}
+
+	return apiRequest<UserProfileStats>(`/community/users/${userId}/profile`)
 }
 
 export const deleteCommentApi = async (commentId: number) => {

@@ -3,12 +3,13 @@ import type { LoginUser } from '../types'
 import type { Post } from '../types'
 import type { PasswordChangePayload } from '../types'
 import type { ProfileEditPayload } from '../types'
+import type { UserNotificationItem } from '../types'
 import type { UserCommentRecord } from '../types'
 import type { UserSimpleProfile } from '../types'
 import { computed, ref, watch } from 'vue'
 import ProfilePostCard from './profile/ProfilePostCard.vue'
 
-const profileMenus = ['我的发帖', '我的评论', '我的收藏', '我的粉丝', '我的关注', '编辑资料']
+const profileMenus = ['我的发帖', '我的评论', '我的收藏', '我的粉丝', '我的关注', '通知', '编辑资料']
 const otherProfileMenus = ['TA的发帖']
 
 const props = defineProps<{
@@ -17,11 +18,13 @@ const props = defineProps<{
 	isProfileFollowed: boolean
 	canFollowProfile: boolean
 	activeProfileMenu: number
+	totalLikes: number
 	myPosts: Post[]
 	myComments: UserCommentRecord[]
 	myFavoritePosts: Post[]
 	myFans: UserSimpleProfile[]
 	myFollowings: UserSimpleProfile[]
+	notifications: UserNotificationItem[]
 }>()
 
 const displayMenus = computed(() => (props.isSelfProfile ? profileMenus : otherProfileMenus))
@@ -153,7 +156,7 @@ const handleChangePassword = () => {
 					<div class="profile-summary-stats">
 						<span><b>{{ loginUser?.fans ?? 0 }}</b> 粉丝</span>
 						<span><b>{{ loginUser?.follows ?? 0 }}</b> 关注</span>
-						<span><b>0</b> 获赞</span>
+						<span><b>{{ totalLikes }}</b> 获赞</span>
 					</div>
 				</div>
 			</div>
@@ -190,7 +193,7 @@ const handleChangePassword = () => {
 			</aside>
 
 			<section class="profile-content">
-				<div v-if="!(isSelfProfile && activeProfileMenu === 5)" class="profile-content-head">
+				<div v-if="!(isSelfProfile && activeProfileMenu === 6)" class="profile-content-head">
 					{{ displayMenus[activeProfileMenu] }}
 				</div>
 				<div v-if="activeProfileMenu === 0" class="my-posts-wrap">
@@ -294,7 +297,23 @@ const handleChangePassword = () => {
 						<p>你还没有关注任何人</p>
 					</div>
 				</div>
-				<div v-else-if="isSelfProfile && activeProfileMenu === 5" class="edit-profile-wrap">
+				<div v-else-if="isSelfProfile && activeProfileMenu === 5" class="notification-wrap">
+					<template v-if="notifications.length">
+						<article v-for="item in notifications" :key="item.id" class="notification-item">
+							<div class="notification-top">
+								<span class="notification-title">{{ item.title }}</span>
+								<span class="notification-time">{{ item.time }}</span>
+							</div>
+							<p class="notification-content">{{ item.content }}</p>
+							<p class="notification-meta">操作人：{{ item.actorName || '系统' }}</p>
+						</article>
+					</template>
+					<div v-else class="profile-empty">
+						<div class="empty-planet">✦</div>
+						<p>暂无通知</p>
+					</div>
+				</div>
+				<div v-else-if="isSelfProfile && activeProfileMenu === 6" class="edit-profile-wrap">
 					<div class="edit-header">编辑资料</div>
 					<div class="avatar-edit-block">
 						<div class="avatar-large-preview">
@@ -600,6 +619,48 @@ const handleChangePassword = () => {
 	align-items: center;
 	font-size: 13px;
 	color: #9aa3b6;
+}
+
+.notification-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.notification-item {
+	border: 1px solid #e9edf3;
+	border-radius: 10px;
+	padding: 12px;
+	background: #fafcff;
+}
+
+.notification-top {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	align-items: center;
+}
+
+.notification-title {
+	font-weight: 700;
+	color: #2f3748;
+}
+
+.notification-time {
+	font-size: 12px;
+	color: #9aa3b6;
+}
+
+.notification-content {
+	margin: 8px 0 4px;
+	color: #4f586d;
+	line-height: 1.6;
+}
+
+.notification-meta {
+	margin: 0;
+	font-size: 12px;
+	color: #8e97aa;
 }
 
 .delete-btn {

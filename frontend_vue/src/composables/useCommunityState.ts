@@ -21,6 +21,7 @@ import type {
 	Post,
 	ProfileEditPayload,
 	PublishPayload,
+	UserNotificationItem,
 	UserTestData
 } from '../types'
 
@@ -42,6 +43,8 @@ export const useCommunityState = ({
 	const userTestData = ref<UserTestData>({
 		fans: [],
 		followings: [],
+		fansTotal: 0,
+		followingsTotal: 0,
 		comments: [],
 		favoritePostIds: []
 	})
@@ -52,6 +55,7 @@ export const useCommunityState = ({
 	})
 	const posts = ref<Post[]>([])
 	const comments = ref<CommentRecord[]>([])
+	const notifications = ref<UserNotificationItem[]>([])
 	const isCommunityReady = ref(false)
 	const communityError = ref('')
 
@@ -60,9 +64,16 @@ export const useCommunityState = ({
 		try {
 			const seed = await getCommunitySeedApi()
 			userTestData.value = seed.userTestData
+			if (typeof userTestData.value.fansTotal !== 'number') {
+				userTestData.value.fansTotal = userTestData.value.fans.length
+			}
+			if (typeof userTestData.value.followingsTotal !== 'number') {
+				userTestData.value.followingsTotal = userTestData.value.followings.length
+			}
 			interactionTestData.value = seed.interactionTestData
 			posts.value = seed.posts
 			comments.value = seed.comments
+			notifications.value = seed.notifications || []
 			syncDerivedState()
 			isCommunityReady.value = true
 		} catch {
@@ -101,8 +112,9 @@ export const useCommunityState = ({
 			}))
 
 		if (loginUser.value) {
-			loginUser.value.fans = userTestData.value.fans.length
-			loginUser.value.follows = userTestData.value.followings.length
+			loginUser.value.fans = userTestData.value.fansTotal ?? userTestData.value.fans.length
+			loginUser.value.follows =
+				userTestData.value.followingsTotal ?? userTestData.value.followings.length
 		}
 	}
 
@@ -184,6 +196,7 @@ export const useCommunityState = ({
 			if (!interactionTestData.value.followedAuthorIds.includes(authorId)) {
 				interactionTestData.value.followedAuthorIds.push(authorId)
 			}
+			userTestData.value.followingsTotal = (userTestData.value.followingsTotal || 0) + 1
 			if (!userTestData.value.followings.some((item) => item.id === authorId)) {
 				userTestData.value.followings.push({
 					id: authorId,
@@ -194,6 +207,10 @@ export const useCommunityState = ({
 		} else {
 			interactionTestData.value.followedAuthorIds = interactionTestData.value.followedAuthorIds.filter(
 				(id) => id !== authorId
+			)
+			userTestData.value.followingsTotal = Math.max(
+				0,
+				(userTestData.value.followingsTotal || 0) - 1
 			)
 			userTestData.value.followings = userTestData.value.followings.filter((item) => item.id !== authorId)
 		}
@@ -251,6 +268,7 @@ export const useCommunityState = ({
 		await toggleAuthorFollowApi(userId, false)
 
 		userTestData.value.followings = userTestData.value.followings.filter((item) => item.id !== userId)
+		userTestData.value.followingsTotal = Math.max(0, (userTestData.value.followingsTotal || 0) - 1)
 		interactionTestData.value.followedAuthorIds = interactionTestData.value.followedAuthorIds.filter(
 			(id) => id !== userId
 		)
@@ -273,6 +291,7 @@ export const useCommunityState = ({
 		if (!fan) return
 		await toggleAuthorFollowApi(userId, true)
 		userTestData.value.followings.push({ ...fan })
+		userTestData.value.followingsTotal = (userTestData.value.followingsTotal || 0) + 1
 		syncDerivedState()
 	}
 
@@ -306,6 +325,7 @@ export const useCommunityState = ({
 		if (!interactionTestData.value.followedAuthorIds.includes(userId)) {
 			interactionTestData.value.followedAuthorIds.push(userId)
 		}
+		userTestData.value.followingsTotal = (userTestData.value.followingsTotal || 0) + 1
 		posts.value.forEach((item) => {
 			if (item.authorId === userId || item.author === profileUser.name) {
 				item.isFollowingAuthor = true
@@ -386,6 +406,7 @@ export const useCommunityState = ({
 		interactionTestData,
 		posts,
 		comments,
+		notifications,
 		isCommunityReady,
 		communityError,
 		initCommunityData,
