@@ -86,13 +86,16 @@ defineExpose({
 			<article v-for="item in sortedComments" :key="item.id" class="comment-item">
 				<div
 					class="avatar"
-					@click="emit('open-author-profile', { userId: item.authorId, userName: item.author, avatarText: item.author.slice(0, 1) })"
-				></div>
+					@click="emit('open-author-profile', { userId: item.authorId, userName: item.author, avatarText: item.authorAvatarText || item.author.slice(0, 1) })"
+				>
+					<img v-if="item.authorAvatarUrl" :src="item.authorAvatarUrl" alt="avatar" />
+					<span v-else>{{ item.authorAvatarText || item.author.slice(0, 1) }}</span>
+				</div>
 				<div class="comment-body">
 					<div class="comment-user-row">
 						<span
 							class="name"
-							@click="emit('open-author-profile', { userId: item.authorId, userName: item.author, avatarText: item.author.slice(0, 1) })"
+							@click="emit('open-author-profile', { userId: item.authorId, userName: item.author, avatarText: item.authorAvatarText || item.author.slice(0, 1) })"
 						>
 							{{ item.author }}
 						</span>
@@ -236,6 +239,18 @@ defineExpose({
 	border-radius: 50%;
 	background: linear-gradient(145deg, #ff9ec6, #a0d0ff);
 	flex-shrink: 0;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	color: #fff;
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .comment-body {

@@ -1,7 +1,7 @@
 import type { LoginUser } from '../types'
 import { apiRequest } from './client'
 
-const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API || 'true') === 'true'
+const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API || 'false') === 'true'
 
 type AuthStats = {
 	fans: number
@@ -21,24 +21,50 @@ const buildUser = (nameOrEmail: string, stats: AuthStats): LoginUser => {
 	}
 }
 
-export const loginApi = async (account: string, stats: AuthStats): Promise<LoginUser> => {
+export const loginApi = async (
+	account: string,
+	password: string,
+	stats: AuthStats
+): Promise<LoginUser> => {
 	if (USE_MOCK_API) {
 		return buildUser(account, stats)
 	}
 
 	return apiRequest<LoginUser>('/auth/login', {
 		method: 'POST',
-		body: JSON.stringify({ account })
+		body: JSON.stringify({ account, password })
 	})
 }
 
-export const registerApi = async (email: string, stats: AuthStats): Promise<LoginUser> => {
+export const registerApi = async (
+	email: string,
+	password: string,
+	stats: AuthStats
+): Promise<LoginUser> => {
 	if (USE_MOCK_API) {
 		return buildUser(email, stats)
 	}
 
 	return apiRequest<LoginUser>('/auth/register', {
 		method: 'POST',
-		body: JSON.stringify({ email })
+		body: JSON.stringify({ email, password })
+	})
+}
+
+export const meApi = async (): Promise<LoginUser> => {
+	if (USE_MOCK_API) {
+		throw new Error('mock mode: me api disabled')
+	}
+
+	return apiRequest<LoginUser>('/users/me')
+}
+
+export const logoutApi = async (): Promise<{ success: boolean }> => {
+	if (USE_MOCK_API) {
+		return { success: true }
+	}
+
+	return apiRequest<{ success: boolean }>('/auth/logout', {
+		method: 'POST'
 	})
 }

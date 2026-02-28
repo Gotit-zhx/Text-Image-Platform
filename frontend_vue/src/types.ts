@@ -5,6 +5,8 @@ export type Post = {
 	contentHtml?: string
 	author: string
 	authorId?: number
+	authorAvatarText?: string
+	authorAvatarUrl?: string
 	time: string
 	tags: string[]
 	images: string[]
@@ -53,6 +55,8 @@ export type CommentRecord = {
 	postId: number
 	authorId?: number
 	author: string
+	authorAvatarText?: string
+	authorAvatarUrl?: string
 	date: string
 	content: string
 	likes: number

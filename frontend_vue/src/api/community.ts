@@ -3,7 +3,7 @@ import type { CommentRecord, InteractionTestData, Post, UserTestData } from '../
 import { apiRequest } from './client'
 import type { PublishPayload } from '../types'
 
-const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API || 'true') === 'true'
+const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API || 'false') === 'true'
 
 export const DEFAULT_COMMUNITY_STATS = {
 	fans: 4,
@@ -265,6 +265,16 @@ export const searchPostsApi = async (
 	const response = await apiRequest<{ posts: Post[] }>(`/community/search?${query.toString()}`, {
 		signal: options?.signal
 	})
+	return response.posts
+}
+
+export const recommendPostsApi = async (k = 20): Promise<Post[]> => {
+	if (USE_MOCK_API) {
+		return sortByLikesDesc(getMockCommunitySeed().posts).slice(0, k)
+	}
+
+	const query = new URLSearchParams({ k: String(k) })
+	const response = await apiRequest<{ posts: Post[] }>(`/community/recommend?${query.toString()}`)
 	return response.posts
 }
 

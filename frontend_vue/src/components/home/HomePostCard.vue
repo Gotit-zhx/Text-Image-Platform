@@ -43,13 +43,16 @@ const getImageStyle = (image: string) => {
 			<div class="author-wrap">
 				<div
 					class="author-avatar"
-					@click.stop="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.author.slice(0, 1) })"
-				></div>
+					@click.stop="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.authorAvatarText || post.author.slice(0, 1) })"
+				>
+					<img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="avatar" />
+					<span v-else>{{ post.authorAvatarText || post.author.slice(0, 1) }}</span>
+				</div>
 				<div class="author-meta">
 					<div class="meta-line">
 						<span
 							class="author"
-							@click.stop="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.author.slice(0, 1) })"
+							@click.stop="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.authorAvatarText || post.author.slice(0, 1) })"
 						>
 							{{ post.author }}
 						</span>
@@ -127,6 +130,18 @@ const getImageStyle = (image: string) => {
 	background: linear-gradient(145deg, #f4bf80, #e88e47);
 	box-shadow: inset 0 0 0 2px #fff;
 	border: 1px solid #e7d3bf;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	color: #fff;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.author-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .meta-line {

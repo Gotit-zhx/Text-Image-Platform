@@ -355,6 +355,8 @@ export const useCommunityState = ({
 			if (item.author === oldName || item.authorId === loginUser.value?.id) {
 				item.author = payload.name
 				item.authorId = loginUser.value?.id
+				item.authorAvatarText = loginUser.value?.avatarText
+				item.authorAvatarUrl = payload.avatarUrl
 			}
 		})
 
@@ -362,6 +364,8 @@ export const useCommunityState = ({
 			if (item.isMine || item.author === oldName || item.authorId === loginUser.value?.id) {
 				item.author = payload.name
 				item.authorId = loginUser.value?.id
+				item.authorAvatarText = loginUser.value?.avatarText
+				item.authorAvatarUrl = payload.avatarUrl
 			}
 		})
 

@@ -9,7 +9,7 @@ import PublishPostContent from './components/PublishPostContent.vue'
 import ArticleDetailContent from './components/ArticleDetailContent.vue'
 import LoginModal from './components/LoginModal.vue'
 import RegisterModal from './components/RegisterModal.vue'
-import { DEFAULT_COMMUNITY_STATS, searchPostsApi } from './api/community'
+import { DEFAULT_COMMUNITY_STATS, recommendPostsApi, searchPostsApi } from './api/community'
 import { useAuthState } from './composables/useAuthState'
 import { useCommunityState } from './composables/useCommunityState'
 import type {
@@ -73,10 +73,13 @@ const activeNav = computed(() => {
 
 const viewedProfileUser = ref<LoginUser | null>(null)
 const serverSearchPosts = ref<Post[] | null>(null)
+const serverRecommendedPosts = ref<Post[] | null>(null)
 const searchRequestId = ref(0)
 const isSearching = ref(false)
 const searchError = ref('')
 const searchAbortController = ref<AbortController | null>(null)
+const isRecommending = ref(false)
+const recommendError = ref('')
 
 const {
 	showLoginModal,
@@ -100,7 +103,8 @@ const {
 	backToLogin,
 	mockLogin,
 	mockRegister,
-	mockLogout
+	mockLogout,
+	refreshSession
 } = useAuthState({
 	getUserStats: () => ({ ...DEFAULT_COMMUNITY_STATS })
 })
@@ -134,8 +138,9 @@ const {
 	userPassword
 })
 
-onMounted(() => {
-	initCommunityData()
+onMounted(async () => {
+	await refreshSession()
+	await initCommunityData()
 })
 
 const normalizedSearchKeyword = computed(() => searchKeyword.value.trim().toLowerCase())
@@ -437,7 +442,20 @@ const getRecommendedPosts = (source: Post[]) => {
 	return sortByLikesDesc(source)
 }
 
+const postMapById = computed(() => {
+	const map = new Map<number, Post>()
+	posts.value.forEach((item) => map.set(item.id, item))
+	return map
+})
+
+const resolvePostList = (list: Post[]) =>
+	list.map((item) => postMapById.value.get(item.id) ?? item)
+
 const navFilteredPosts = computed(() => {
+	if (activeNav.value === '推荐' && serverRecommendedPosts.value && serverRecommendedPosts.value.length) {
+		return resolvePostList(serverRecommendedPosts.value)
+	}
+
 	if (activeNav.value === '热门') {
 		return sortByLikesDesc(posts.value)
 	}
@@ -471,7 +489,7 @@ const localFilteredHomePosts = computed(() => {
 
 const filteredHomePosts = computed(() => {
 	if (normalizedSearchKeyword.value && serverSearchPosts.value) {
-		return serverSearchPosts.value
+		return resolvePostList(serverSearchPosts.value)
 	}
 	return localFilteredHomePosts.value
 })
@@ -511,6 +529,20 @@ const runSearch = async () => {
 		if (searchRequestId.value === currentRequestId) {
 			isSearching.value = false
 		}
+	}
+}
+
+const loadRecommendPosts = async () => {
+	if (!isCommunityReady.value) return
+	isRecommending.value = true
+	recommendError.value = ''
+	try {
+		serverRecommendedPosts.value = await recommendPostsApi(20)
+	} catch {
+		serverRecommendedPosts.value = null
+		recommendError.value = '推荐服务暂不可用，已回退热门内容'
+	} finally {
+		isRecommending.value = false
 	}
 }
 
@@ -564,8 +596,8 @@ const handleChangePassword = (payload: PasswordChangePayload) => {
 	changePassword(payload)
 }
 
-const handleLogout = () => {
-	mockLogout()
+const handleLogout = async () => {
+	await mockLogout()
 	viewedProfileUser.value = null
 	router.push({ name: 'home' })
 }
@@ -635,10 +667,23 @@ watch(
 watch(
 	() => route.query.nav,
 	() => {
+		if (activeNav.value === '推荐') {
+			loadRecommendPosts()
+		}
+
 		if (searchKeyword.value.trim()) {
 			runSearch()
 		}
 	}
+)
+
+watch(
+	() => [isCommunityReady.value, isLoggedIn.value],
+	() => {
+		if (!isCommunityReady.value) return
+		loadRecommendPosts()
+	},
+	{ immediate: true }
 )
 
 watch(

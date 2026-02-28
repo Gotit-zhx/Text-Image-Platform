@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { LoginUser } from '../types'
-import { loginApi, registerApi } from '../api/auth'
+import { loginApi, logoutApi, meApi, registerApi } from '../api/auth'
 import { clearSessionUser, readSessionUser, writeSessionUser } from '../auth/session'
 
 type UseAuthStateOptions = {
@@ -55,7 +55,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
 
 	const mockLogin = async () => {
 		if (!canLogin.value) return
-		loginUser.value = await loginApi(account.value, getUserStats())
+		loginUser.value = await loginApi(account.value, password.value, getUserStats())
 		if (loginUser.value) {
 			writeSessionUser(loginUser.value)
 		}
@@ -64,16 +64,32 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
 
 	const mockRegister = async () => {
 		if (!canRegister.value) return
-		loginUser.value = await registerApi(registerEmail.value, getUserStats())
+		loginUser.value = await registerApi(registerEmail.value, registerPassword.value, getUserStats())
 		if (loginUser.value) {
 			writeSessionUser(loginUser.value)
 		}
 		closeRegisterModal()
 	}
 
-	const mockLogout = () => {
+	const mockLogout = async () => {
+		try {
+			await logoutApi()
+		} catch {
+			// 忽略退出接口异常，确保前端会话可清理
+		}
 		loginUser.value = null
 		clearSessionUser()
+	}
+
+	const refreshSession = async () => {
+		try {
+			const user = await meApi()
+			loginUser.value = user
+			writeSessionUser(user)
+		} catch {
+			loginUser.value = null
+			clearSessionUser()
+		}
 	}
 
 	return {
@@ -98,6 +114,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
 		backToLogin,
 		mockLogin,
 		mockRegister,
-		mockLogout
+		mockLogout,
+		refreshSession
 	}
 }

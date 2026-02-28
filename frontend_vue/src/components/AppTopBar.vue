@@ -55,10 +55,16 @@ const emit = defineEmits<{
 					<button type="button" class="search-btn" @click="emit('search')">🔍</button>
 				</div>
 				<div v-if="isLoggedIn" class="user-entry">
-					<div class="avatar" @click="emit('go-profile')">{{ loginUser?.avatarText || '' }}</div>
+					<div class="avatar" @click="emit('go-profile')">
+						<img v-if="loginUser?.avatarUrl" :src="loginUser.avatarUrl" alt="avatar" />
+						<span v-else>{{ loginUser?.avatarText || '' }}</span>
+					</div>
 					<div class="user-dropdown">
 						<div class="user-dropdown-head">
-							<div class="user-big-avatar">{{ loginUser?.avatarText || '' }}</div>
+							<div class="user-big-avatar">
+								<img v-if="loginUser?.avatarUrl" :src="loginUser.avatarUrl" alt="avatar" />
+								<span v-else>{{ loginUser?.avatarText || '' }}</span>
+							</div>
 							<div class="user-name">{{ loginUser?.name }}</div>
 							<div class="user-stats">
 								<div class="user-stat">
@@ -211,6 +217,13 @@ const emit = defineEmits<{
 	font-size: 14px;
 	font-weight: 700;
 	color: #586178;
+	overflow: hidden;
+}
+
+.avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .user-entry {
@@ -257,6 +270,13 @@ const emit = defineEmits<{
 	color: #5f6a84;
 	background: #c3ebfb;
 	border: 2px solid #a8dff6;
+	overflow: hidden;
+}
+
+.user-big-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .user-name {
