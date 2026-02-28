@@ -12,6 +12,17 @@ class Profile(models.Model):
 
 
 class Post(models.Model):
+    MODERATION_PENDING = 'pending'
+    MODERATION_APPROVED = 'approved'
+    MODERATION_REJECTED = 'rejected'
+    MODERATION_OFFLINE = 'offline'
+    MODERATION_CHOICES = [
+        (MODERATION_PENDING, '待审核'),
+        (MODERATION_APPROVED, '已通过'),
+        (MODERATION_REJECTED, '已驳回'),
+        (MODERATION_OFFLINE, '已下架'),
+    ]
+
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
     title = models.CharField(max_length=255)
     summary = models.TextField(blank=True, default='')
@@ -20,6 +31,10 @@ class Post(models.Model):
     images = models.JSONField(default=list, blank=True)
     likes_count = models.PositiveIntegerField(default=0)
     comments_count = models.PositiveIntegerField(default=0)
+    moderation_status = models.CharField(max_length=16, choices=MODERATION_CHOICES, default=MODERATION_APPROVED)
+    review_reason = models.TextField(blank=True, default='')
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_posts')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -54,6 +69,7 @@ class Comment(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
     content = models.TextField()
     likes_count = models.PositiveIntegerField(default=0)
+    is_hidden = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -66,3 +82,16 @@ class CommentLike(models.Model):
 
     class Meta:
         unique_together = ('user', 'comment')
+
+
+class AuditLog(models.Model):
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    action = models.CharField(max_length=64)
+    target_type = models.CharField(max_length=64)
+    target_id = models.PositiveIntegerField(default=0)
+    detail = models.JSONField(default=dict, blank=True)
+    ip = models.CharField(max_length=64, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

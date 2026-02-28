@@ -1,5 +1,6 @@
 import json
 
+from django.contrib.auth.models import Group
 from django.contrib.auth.models import User
 from django.test import TestCase
 
@@ -94,3 +95,51 @@ class CommunityApiTests(TestCase):
         response = self._post_json(f'/api/community/authors/{user.id}/follow', {'isFollowing': True})
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Follow.objects.filter(follower=user, followee=user).exists())
+
+    def test_admin_auth_me_requires_staff(self):
+        user = User.objects.create_user(username='normal_u', email='normal@example.com', password='123456')
+        self.client.force_login(user)
+        response = self.client.get('/api/admin/auth/me')
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_review_post_success(self):
+        admin = User.objects.create_user(
+            username='admin_u',
+            email='admin_u@example.com',
+            password='123456',
+            is_staff=True,
+            is_superuser=True,
+        )
+        group, _ = Group.objects.get_or_create(name='super_admin')
+        admin.groups.add(group)
+        author = User.objects.create_user(username='writer_u', email='writer@example.com', password='123456')
+        post = Post.objects.create(author=author, title='待审核内容', summary='s', content_html='c')
+
+        self.client.force_login(admin)
+        response = self._post_json(
+            f'/api/admin/moderation/posts/{post.id}/review',
+            {'action': 'offline', 'reason': '测试下架'},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        post.refresh_from_db()
+        self.assertEqual(post.moderation_status, 'offline')
+
+    def test_update_profile_persisted(self):
+        user = User.objects.create_user(username='before_name', email='before@example.com', password='123456')
+        self.client.force_login(user)
+
+        response = self._put_json(
+            '/api/users/me/profile',
+            {
+                'name': 'after_name',
+                'avatarUrl': 'https://example.com/avatar.png',
+                'gender': 'female',
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        user.refresh_from_db()
+        self.assertEqual(user.username, 'after_name')
+        self.assertEqual(user.profile.avatar_url, 'https://example.com/avatar.png')
+        self.assertEqual(user.profile.gender, 'female')

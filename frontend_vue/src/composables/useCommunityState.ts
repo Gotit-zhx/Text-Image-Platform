@@ -1,5 +1,7 @@
 // 审查状态：部分完成（初始化/搜索已接口化，发布/编辑/评论已改服务端优先，互动接口待后端接入）
 import { ref, type ComputedRef, type Ref } from 'vue'
+import { writeSessionUser } from '../auth/session'
+import { updateProfileApi } from '../api/auth'
 import {
 	deleteCommentApi,
 	getCommunitySeedApi,
@@ -332,40 +334,42 @@ export const useCommunityState = ({
 		target.images = draft.images
 	}
 
-	const saveProfile = (payload: ProfileEditPayload) => {
+	const saveProfile = async (payload: ProfileEditPayload) => {
 		if (!loginUser.value) return
 
 		const oldName = loginUser.value.name
-		loginUser.value.avatarUrl = payload.avatarUrl
-		loginUser.value.avatarText = (payload.name || oldName).slice(0, 1)
-		loginUser.value.name = payload.name
-		loginUser.value.gender = payload.gender
+		const persisted = await updateProfileApi(payload)
+		loginUser.value = {
+			...loginUser.value,
+			...persisted
+		}
+		writeSessionUser(loginUser.value)
 
 		if (viewedProfileUser.value && viewedProfileUser.value.id === loginUser.value.id) {
 			viewedProfileUser.value = {
 				...viewedProfileUser.value,
 				avatarText: loginUser.value.avatarText,
-				avatarUrl: payload.avatarUrl,
-				name: payload.name,
-				gender: payload.gender
+				avatarUrl: loginUser.value.avatarUrl,
+				name: loginUser.value.name,
+				gender: loginUser.value.gender
 			}
 		}
 
 		posts.value.forEach((item) => {
 			if (item.author === oldName || item.authorId === loginUser.value?.id) {
-				item.author = payload.name
+				item.author = loginUser.value?.name || payload.name
 				item.authorId = loginUser.value?.id
 				item.authorAvatarText = loginUser.value?.avatarText
-				item.authorAvatarUrl = payload.avatarUrl
+				item.authorAvatarUrl = loginUser.value?.avatarUrl
 			}
 		})
 
 		comments.value.forEach((item) => {
 			if (item.isMine || item.author === oldName || item.authorId === loginUser.value?.id) {
-				item.author = payload.name
+				item.author = loginUser.value?.name || payload.name
 				item.authorId = loginUser.value?.id
 				item.authorAvatarText = loginUser.value?.avatarText
-				item.authorAvatarUrl = payload.avatarUrl
+				item.authorAvatarUrl = loginUser.value?.avatarUrl
 			}
 		})
 

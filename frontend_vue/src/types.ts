@@ -27,6 +27,8 @@ export type LoginUser = {
 	signature?: string
 	fans: number
 	follows: number
+	roles?: string[]
+	isAdmin?: boolean
 }
 
 export type PublishPayload = {

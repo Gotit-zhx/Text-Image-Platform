@@ -85,7 +85,7 @@ const handleSaveProfile = () => {
 		name: nameInput.value.trim(),
 		gender: genderInput.value
 	})
-	saveTip.value = '保存成功（模拟）'
+	saveTip.value = '已提交保存'
 }
 
 const openFileSelect = () => {
@@ -130,7 +130,7 @@ const handleChangePassword = () => {
 		newPassword: newPasswordInput.value,
 		confirmPassword: confirmPasswordInput.value
 	})
-	passwordTip.value = '修改成功（模拟）'
+	passwordTip.value = '修改成功'
 	setTimeout(() => {
 		closePasswordModal()
 	}, 400)

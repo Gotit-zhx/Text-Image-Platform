@@ -3,18 +3,8 @@
 > vite --host 127.0.0.1 --port 5173
 
 
-  VITE v7.3.1  ready in 217 ms
+  VITE v7.3.1  ready in 207 ms
 
   ➜  Local:   http://127.0.0.1:5173/
   ➜  Vue DevTools: Open http://127.0.0.1:5173/__devtools__/ as a separate window
   ➜  Vue DevTools: Press Alt(⌥)+Shift(⇧)+D in App to toggle the Vue DevTools
-00:44:23 [vite] (client) hmr update /src/App.vue
-00:52:56 [vite] (client) hmr update /src/components/AppTopBar.vue, /src/components/PublishPostContent.vue, /src/components/ProfileContent.vue, /src/components/ArticleDetailContent.vue, /src/components/home/HomePostCard.vue, /src/components/detail/ArticleMainCard.vue, /src/components/profile/ProfilePostCard.vue
-00:54:31 [vite] (client) hmr update /src/components/home/HomePostCard.vue, /src/components/home/HomePostCard.vue?vue&type=style&index=0&scoped=178cf31a&lang.css
-00:55:55 [vite] (client) hmr update /src/components/profile/ProfilePostCard.vue, /src/components/profile/ProfilePostCard.vue?vue&type=style&index=0&scoped=2faa2a4a&lang.css
-00:57:11 [vite] (client) hmr update /src/components/detail/ArticleMainCard.vue, /src/components/detail/ArticleMainCard.vue?vue&type=style&index=0&scoped=f123e9cd&lang.css
-00:58:27 [vite] (client) hmr update /src/components/detail/CommentSection.vue, /src/components/detail/CommentSection.vue?vue&type=style&index=0&scoped=737fff14&lang.css
-00:59:48 [vite] (client) hmr update /src/components/AppTopBar.vue, /src/components/AppTopBar.vue?vue&type=style&index=0&scoped=8c4f7848&lang.css
-01:04:38 [vite] (client) hmr update /src/App.vue
-01:10:32 [vite] (client) hmr update /src/components/AppTopBar.vue, /src/components/PublishPostContent.vue, /src/components/ProfileContent.vue, /src/components/ArticleDetailContent.vue, /src/components/home/HomePostCard.vue, /src/components/detail/ArticleMainCard.vue, /src/components/profile/ProfilePostCard.vue
-01:10:32 [vite] (client) hmr update /src/App.vue

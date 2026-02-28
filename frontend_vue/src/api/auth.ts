@@ -1,5 +1,6 @@
 import type { LoginUser } from '../types'
 import { apiRequest } from './client'
+import type { ProfileEditPayload } from '../types'
 
 const USE_MOCK_API = (import.meta.env.VITE_USE_MOCK_API || 'false') === 'true'
 
@@ -66,5 +67,25 @@ export const logoutApi = async (): Promise<{ success: boolean }> => {
 
 	return apiRequest<{ success: boolean }>('/auth/logout', {
 		method: 'POST'
+	})
+}
+
+export const updateProfileApi = async (payload: ProfileEditPayload): Promise<LoginUser> => {
+	if (USE_MOCK_API) {
+		return {
+			id: Date.now(),
+			name: payload.name,
+			email: `${payload.name}@example.com`,
+			avatarText: payload.name.slice(0, 1),
+			avatarUrl: payload.avatarUrl,
+			gender: payload.gender,
+			fans: 0,
+			follows: 0
+		}
+	}
+
+	return apiRequest<LoginUser>('/users/me/profile', {
+		method: 'PUT',
+		body: JSON.stringify(payload)
 	})
 }

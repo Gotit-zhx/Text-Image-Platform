@@ -1,80 +1,55 @@
-Unauthorized: /api/users/me
-[23/Feb/2026 00:35:51] "GET /api/users/me HTTP/1.1" 401 109
-[23/Feb/2026 00:35:51] "GET /api/community/bootstrap HTTP/1.1" 200 2611
+[01/Mar/2026 04:57:31] "GET /api/users/me HTTP/1.1" 200 287
+[01/Mar/2026 04:57:31] "GET /api/community/bootstrap HTTP/1.1" 200 2888582
 [numexpr.utils] Note: NumExpr detected 20 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 16.
 [numexpr.utils] NumExpr defaulting to 16 threads.
 [RecSys] Model loaded.
-[23/Feb/2026 00:35:53] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1840
-[23/Feb/2026 00:36:21] "POST /api/auth/register HTTP/1.1" 201 190
-[23/Feb/2026 00:36:21] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1840
-[23/Feb/2026 00:37:28] "POST /api/community/posts HTTP/1.1" 201 1446200
-[23/Feb/2026 00:37:31] "GET /api/users/me HTTP/1.1" 200 190
-[23/Feb/2026 00:37:31] "GET /api/community/bootstrap HTTP/1.1" 200 1448726
-[23/Feb/2026 00:37:31] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447955
-[23/Feb/2026 00:37:42] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447955
-[23/Feb/2026 00:37:50] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447955
-[23/Feb/2026 00:37:52] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447955
-[23/Feb/2026 00:37:57] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447955
-[23/Feb/2026 00:38:10] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447955
-[23/Feb/2026 00:38:19] "PUT /api/community/posts/5 HTTP/1.1" 200 1446047
-[23/Feb/2026 00:38:24] "POST /api/auth/logout HTTP/1.1" 200 104
-[23/Feb/2026 00:38:24] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447961
+[01/Mar/2026 04:57:33] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617
 Unauthorized: /api/users/me
 [django.request] Unauthorized: /api/users/me
-[23/Feb/2026 00:38:25] "GET /api/users/me HTTP/1.1" 401 109
-[23/Feb/2026 00:38:25] "GET /api/community/bootstrap HTTP/1.1" 200 1448732
-[23/Feb/2026 00:38:25] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447961
-[23/Feb/2026 00:38:33] "POST /api/auth/login HTTP/1.1" 200 190
-[23/Feb/2026 00:38:33] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447961
-[23/Feb/2026 00:38:46] "POST /api/community/posts/5/like HTTP/1.1" 200 117
-[23/Feb/2026 00:38:51] "POST /api/community/posts/2/favorite HTTP/1.1" 200 121
-[23/Feb/2026 00:38:53] "POST /api/community/posts/2/favorite HTTP/1.1" 200 122
-[23/Feb/2026 00:38:57] "POST /api/community/posts/2/favorite HTTP/1.1" 200 121
-[23/Feb/2026 00:38:57] "POST /api/community/posts/2/like HTTP/1.1" 200 117
-[23/Feb/2026 00:38:59] "POST /api/community/posts/2/favorite HTTP/1.1" 200 122
-[23/Feb/2026 00:39:00] "POST /api/community/posts/2/like HTTP/1.1" 200 118
-[23/Feb/2026 00:39:01] "POST /api/community/posts/2/like HTTP/1.1" 200 117
-[23/Feb/2026 00:39:08] "GET /api/users/me HTTP/1.1" 200 190
-[23/Feb/2026 00:39:08] "GET /api/community/bootstrap HTTP/1.1" 200 1448734
-[23/Feb/2026 00:39:08] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447959
-[23/Feb/2026 00:39:55] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447959
-[23/Feb/2026 00:39:56] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447959
-[23/Feb/2026 00:39:57] "POST /api/community/authors/2/follow HTTP/1.1" 200 123
-[23/Feb/2026 00:40:02] "POST /api/community/authors/2/follow HTTP/1.1" 200 124
-[23/Feb/2026 00:40:03] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447959
-[23/Feb/2026 00:40:06] "POST /api/community/authors/2/follow HTTP/1.1" 200 123
-[23/Feb/2026 00:40:07] "POST /api/community/authors/2/follow HTTP/1.1" 200 124
-[23/Feb/2026 00:40:07] "POST /api/community/authors/2/follow HTTP/1.1" 200 123
-[23/Feb/2026 00:40:09] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:40:11] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:40:49] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:40:52] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:41:45] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:44:23] "GET /api/users/me HTTP/1.1" 200 190
-[23/Feb/2026 00:44:23] "GET /api/community/bootstrap HTTP/1.1" 200 1448809
-[23/Feb/2026 00:44:23] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:45:50] "GET /api/users/me HTTP/1.1" 200 190
-[23/Feb/2026 00:45:50] "GET /api/community/bootstrap HTTP/1.1" 200 1448809
-[23/Feb/2026 00:45:50] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447958
-[23/Feb/2026 00:45:52] "POST /api/community/posts/5/like HTTP/1.1" 200 118
-[23/Feb/2026 00:45:52] "POST /api/community/posts/5/like HTTP/1.1" 200 117
-[23/Feb/2026 00:45:53] "POST /api/community/posts/5/like HTTP/1.1" 200 118
-[23/Feb/2026 00:45:55] "POST /api/community/posts/2/like HTTP/1.1" 200 118
-[23/Feb/2026 00:45:55] "POST /api/community/posts/2/like HTTP/1.1" 200 117
-[23/Feb/2026 00:45:55] "POST /api/community/posts/2/favorite HTTP/1.1" 200 121
-[23/Feb/2026 00:45:56] "POST /api/community/posts/2/favorite HTTP/1.1" 200 122
-[23/Feb/2026 00:49:26] "GET /api/users/me HTTP/1.1" 200 190
-[23/Feb/2026 00:49:26] "GET /api/community/bootstrap HTTP/1.1" 200 1448807
-[23/Feb/2026 00:49:26] "GET /api/community/recommend?k=20 HTTP/1.1" 200 1447959
-[23/Feb/2026 01:12:46] "GET /api/users/me HTTP/1.1" 200 190
-[23/Feb/2026 01:12:46] "GET /api/community/bootstrap HTTP/1.1" 200 1531888
-[23/Feb/2026 01:12:47] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10422
-[23/Feb/2026 01:13:00] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10422
-[23/Feb/2026 01:13:02] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10422
-[23/Feb/2026 01:13:04] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10422
-[23/Feb/2026 01:13:10] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10422
-[23/Feb/2026 01:13:13] "POST /api/auth/logout HTTP/1.1" 200 104
-[23/Feb/2026 01:13:13] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10424
-[23/Feb/2026 01:13:24] "POST /api/auth/login HTTP/1.1" 200 186
-[23/Feb/2026 01:13:24] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10424
-[23/Feb/2026 01:13:40] "GET /api/community/recommend?k=20 HTTP/1.1" 200 10424
+[01/Mar/2026 04:57:35] "GET /api/users/me HTTP/1.1" 401 109
+Unauthorized: /api/admin/auth/me
+[django.request] Unauthorized: /api/admin/auth/me
+[01/Mar/2026 04:57:35] "GET /api/admin/auth/me HTTP/1.1" 401 109
+Unauthorized: /api/admin/dashboard/overview
+[django.request] Unauthorized: /api/admin/dashboard/overview
+[01/Mar/2026 04:57:35] "GET /api/admin/dashboard/overview HTTP/1.1" 401 109
+Unauthorized: /api/users/me
+[django.request] Unauthorized: /api/users/me
+[01/Mar/2026 04:57:42] "GET /api/users/me HTTP/1.1" 401 109
+[01/Mar/2026 04:57:44] "POST /api/admin/auth/login HTTP/1.1" 200 287
+[01/Mar/2026 04:57:44] "GET /api/admin/dashboard/overview HTTP/1.1" 200 179
+[01/Mar/2026 04:57:47] "GET /api/admin/moderation/posts?page=1&pageSize=10 HTTP/1.1" 200 3068
+[01/Mar/2026 04:57:52] "GET /api/admin/moderation/posts?page=1&pageSize=100 HTTP/1.1" 200 16167
+[01/Mar/2026 04:57:56] "GET /api/admin/moderation/comments?page=1&pageSize=10 HTTP/1.1" 200 3766
+[01/Mar/2026 04:58:01] "GET /api/admin/moderation/posts?page=1&pageSize=100 HTTP/1.1" 200 16167
+[01/Mar/2026 04:58:10] "GET /api/admin/dashboard/overview HTTP/1.1" 200 179
+[01/Mar/2026 04:58:11] "GET /api/admin/moderation/posts?page=1&pageSize=100 HTTP/1.1" 200 16167
+[01/Mar/2026 04:58:11] "GET /api/admin/moderation/comments?page=1&pageSize=10 HTTP/1.1" 200 3766
+[01/Mar/2026 04:58:12] "GET /api/admin/users?page=1&pageSize=10 HTTP/1.1" 200 1405
+[01/Mar/2026 04:58:12] "GET /api/admin/audit/logs?page=1&pageSize=10 HTTP/1.1" 200 155
+[01/Mar/2026 04:58:22] "GET /api/admin/dashboard/overview HTTP/1.1" 200 179
+[01/Mar/2026 04:58:29] "GET /api/admin/moderation/posts?page=1&pageSize=100 HTTP/1.1" 200 16167
+[01/Mar/2026 04:58:34] "GET /api/users/me HTTP/1.1" 200 287
+[01/Mar/2026 04:58:34] "GET /api/admin/auth/me HTTP/1.1" 200 287
+[01/Mar/2026 04:58:34] "GET /api/admin/users?page=1&pageSize=10 HTTP/1.1" 200 1405
+[01/Mar/2026 04:58:37] "GET /api/users/me HTTP/1.1" 200 287
+[01/Mar/2026 04:58:37] "GET /api/community/bootstrap HTTP/1.1" 200 2888582
+[01/Mar/2026 04:58:37] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617
+Unauthorized: /api/users/me
+[django.request] Unauthorized: /api/users/me
+[01/Mar/2026 04:58:39] "GET /api/users/me HTTP/1.1" 401 109
+[01/Mar/2026 04:58:39] "GET /api/community/bootstrap HTTP/1.1" 200 2888582
+[01/Mar/2026 04:58:39] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617
+[01/Mar/2026 04:58:46] "POST /api/auth/login HTTP/1.1" 200 723100
+[01/Mar/2026 04:58:46] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617
+[01/Mar/2026 04:58:49] "GET /api/community/search?q=&nav=%E6%9B%B4%E6%96%B0&page=1&pageSize=12 HTTP/1.1" 200 2115049
+[01/Mar/2026 04:58:49] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617
+[01/Mar/2026 04:58:51] "GET /api/community/search?q=&nav=%E6%9B%B4%E6%96%B0&page=1&pageSize=12 HTTP/1.1" 200 2115049
+[01/Mar/2026 04:58:52] "GET /api/community/search?q=&nav=%E6%9B%B4%E6%96%B0&page=2&pageSize=12 HTTP/1.1" 200 10568
+[01/Mar/2026 04:58:54] "GET /api/community/search?q=&nav=%E6%9B%B4%E6%96%B0&page=3&pageSize=12 HTTP/1.1" 200 10535
+[01/Mar/2026 04:58:56] "GET /api/community/search?q=&nav=%E6%9B%B4%E6%96%B0&page=4&pageSize=12 HTTP/1.1" 200 10522
+[01/Mar/2026 04:58:57] "GET /api/community/search?q=&nav=%E6%9B%B4%E6%96%B0&page=5&pageSize=12 HTTP/1.1" 200 6255
+[01/Mar/2026 04:59:08] "GET /api/community/search?q=&nav=%E7%83%AD%E9%97%A8&page=1&pageSize=12 HTTP/1.1" 200 10617
+[01/Mar/2026 04:59:09] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617
+[01/Mar/2026 04:59:10] "GET /api/community/search?q=&nav=%E7%83%AD%E9%97%A8&page=1&pageSize=12 HTTP/1.1" 200 10617
+[01/Mar/2026 04:59:10] "GET /api/community/recommend?k=12&page=1&pageSize=12 HTTP/1.1" 200 10617

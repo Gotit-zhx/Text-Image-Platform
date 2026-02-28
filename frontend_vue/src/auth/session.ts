@@ -28,3 +28,8 @@ export const clearSessionUser = () => {
 }
 
 export const isAuthenticated = () => Boolean(readSessionUser())
+
+export const isAdminAuthenticated = () => {
+	const user = readSessionUser()
+	return Boolean(user && user.isAdmin)
+}

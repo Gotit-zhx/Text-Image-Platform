@@ -9,6 +9,7 @@ import PublishPostContent from './components/PublishPostContent.vue'
 import ArticleDetailContent from './components/ArticleDetailContent.vue'
 import LoginModal from './components/LoginModal.vue'
 import RegisterModal from './components/RegisterModal.vue'
+import AdminConsole from './components/admin/AdminConsole.vue'
 import { DEFAULT_COMMUNITY_STATS, recommendPostsApi, searchPostsApi } from './api/community'
 import { useAuthState } from './composables/useAuthState'
 import { useCommunityState } from './composables/useCommunityState'
@@ -24,11 +25,12 @@ import type {
 
 const navItems = ['推荐', '热门', '更新', '关注']
 const quickActions = ['发布图文']
+const HOME_PAGE_SIZE = 12
 
 const router = useRouter()
 const route = useRoute()
 
-const currentPage = computed<'home' | 'profile' | 'publish' | 'edit' | 'detail'>(() => {
+const currentPage = computed<'home' | 'profile' | 'publish' | 'edit' | 'detail' | 'admin'>(() => {
 	if (
 		route.name === 'home' ||
 		route.name === 'profile' ||
@@ -38,8 +40,15 @@ const currentPage = computed<'home' | 'profile' | 'publish' | 'edit' | 'detail'>
 	) {
 		return route.name
 	}
+
+	if (String(route.name || '').startsWith('admin-')) {
+		return 'admin'
+	}
+
 	return 'home'
 })
+
+const isAdminRoute = computed(() => currentPage.value === 'admin')
 
 const currentPostId = computed<number | null>(() => {
 	if (route.name !== 'detail') return null
@@ -80,6 +89,11 @@ const searchError = ref('')
 const searchAbortController = ref<AbortController | null>(null)
 const isRecommending = ref(false)
 const recommendError = ref('')
+const serverNavPosts = ref<Post[] | null>(null)
+const visibleHomePostCount = ref(HOME_PAGE_SIZE)
+const isLoadingMoreHomePosts = ref(false)
+const homeFeedPage = ref(1)
+const homeFeedHasMore = ref(false)
 
 const {
 	showLoginModal,
@@ -140,6 +154,7 @@ const {
 
 onMounted(async () => {
 	await refreshSession()
+	if (isAdminRoute.value) return
 	await initCommunityData()
 })
 
@@ -456,6 +471,15 @@ const navFilteredPosts = computed(() => {
 		return resolvePostList(serverRecommendedPosts.value)
 	}
 
+	if (
+		activeNav.value !== '推荐' &&
+		!normalizedSearchKeyword.value &&
+		serverNavPosts.value &&
+		serverNavPosts.value.length
+	) {
+		return resolvePostList(serverNavPosts.value)
+	}
+
 	if (activeNav.value === '热门') {
 		return sortByLikesDesc(posts.value)
 	}
@@ -494,12 +518,58 @@ const filteredHomePosts = computed(() => {
 	return localFilteredHomePosts.value
 })
 
+const visibleHomePosts = computed(() => filteredHomePosts.value.slice(0, visibleHomePostCount.value))
+
+const hasMoreHomePosts = computed(
+	() => visibleHomePosts.value.length < filteredHomePosts.value.length || homeFeedHasMore.value
+)
+
+const loadMoreHomePosts = async () => {
+	if (!hasMoreHomePosts.value || isLoadingMoreHomePosts.value) return
+	isLoadingMoreHomePosts.value = true
+
+	try {
+		const nextPage = homeFeedPage.value + 1
+		if (normalizedSearchKeyword.value) {
+			const result = await searchPostsApi(searchKeyword.value.trim(), activeNav.value, {
+				page: nextPage,
+				pageSize: HOME_PAGE_SIZE
+			})
+			serverSearchPosts.value = [...(serverSearchPosts.value || []), ...result.posts]
+			homeFeedPage.value = result.pagination.page
+			homeFeedHasMore.value = result.pagination.hasMore
+		} else if (activeNav.value === '推荐') {
+			const result = await recommendPostsApi(HOME_PAGE_SIZE, {
+				page: nextPage,
+				pageSize: HOME_PAGE_SIZE
+			})
+			serverRecommendedPosts.value = [...(serverRecommendedPosts.value || []), ...result.posts]
+			homeFeedPage.value = result.pagination.page
+			homeFeedHasMore.value = result.pagination.hasMore
+		} else {
+			const result = await searchPostsApi('', activeNav.value, {
+				page: nextPage,
+				pageSize: HOME_PAGE_SIZE
+			})
+			serverNavPosts.value = [...(serverNavPosts.value || []), ...result.posts]
+			homeFeedPage.value = result.pagination.page
+			homeFeedHasMore.value = result.pagination.hasMore
+		}
+
+		visibleHomePostCount.value += HOME_PAGE_SIZE
+	} finally {
+		isLoadingMoreHomePosts.value = false
+	}
+}
+
 const runSearch = async () => {
 	const keyword = searchKeyword.value.trim()
 	if (!keyword) {
 		searchAbortController.value?.abort()
 		searchAbortController.value = null
 		serverSearchPosts.value = null
+		homeFeedPage.value = 1
+		homeFeedHasMore.value = false
 		searchError.value = ''
 		isSearching.value = false
 		return
@@ -514,16 +584,21 @@ const runSearch = async () => {
 	searchError.value = ''
 
 	try {
+		homeFeedPage.value = 1
 		const result = await searchPostsApi(keyword, activeNav.value, {
+			page: 1,
+			pageSize: HOME_PAGE_SIZE,
 			signal: searchAbortController.value.signal
 		})
 		if (searchRequestId.value !== currentRequestId) return
-		serverSearchPosts.value = result
+		serverSearchPosts.value = result.posts
+		homeFeedHasMore.value = result.pagination.hasMore
 		searchError.value = ''
 	} catch (error) {
 		if (searchRequestId.value !== currentRequestId) return
 		if (error instanceof Error && error.name === 'AbortError') return
 		serverSearchPosts.value = null
+		homeFeedHasMore.value = false
 		searchError.value = '搜索服务暂不可用，已回退本地结果'
 	} finally {
 		if (searchRequestId.value === currentRequestId) {
@@ -537,12 +612,40 @@ const loadRecommendPosts = async () => {
 	isRecommending.value = true
 	recommendError.value = ''
 	try {
-		serverRecommendedPosts.value = await recommendPostsApi(20)
+		homeFeedPage.value = 1
+		const result = await recommendPostsApi(HOME_PAGE_SIZE, {
+			page: 1,
+			pageSize: HOME_PAGE_SIZE
+		})
+		serverRecommendedPosts.value = result.posts
+		homeFeedHasMore.value = result.pagination.hasMore
 	} catch {
 		serverRecommendedPosts.value = null
+		homeFeedHasMore.value = false
 		recommendError.value = '推荐服务暂不可用，已回退热门内容'
 	} finally {
 		isRecommending.value = false
+	}
+}
+
+const loadNavPosts = async () => {
+	if (!isCommunityReady.value) return
+	if (activeNav.value === '推荐' || normalizedSearchKeyword.value) return
+
+	isLoadingMoreHomePosts.value = true
+	try {
+		homeFeedPage.value = 1
+		const result = await searchPostsApi('', activeNav.value, {
+			page: 1,
+			pageSize: HOME_PAGE_SIZE
+		})
+		serverNavPosts.value = result.posts
+		homeFeedHasMore.value = result.pagination.hasMore
+	} catch {
+		serverNavPosts.value = null
+		homeFeedHasMore.value = false
+	} finally {
+		isLoadingMoreHomePosts.value = false
 	}
 }
 
@@ -588,8 +691,10 @@ const handleSaveEditedPost = async (payload: PublishPayload) => {
 	router.push({ name: 'profile', query: { menu: '0' } })
 }
 
-const handleSaveProfile = (payload: ProfileEditPayload) => {
-	saveProfile(payload)
+const handleSaveProfile = async (payload: ProfileEditPayload) => {
+	await runGuardedAction(async () => {
+		await saveProfile(payload)
+	})
 }
 
 const handleChangePassword = (payload: PasswordChangePayload) => {
@@ -658,6 +763,7 @@ watch(
 watch(
 	() => route.query.q,
 	(newValue) => {
+		if (isAdminRoute.value) return
 		searchKeyword.value = typeof newValue === 'string' ? newValue : ''
 		runSearch()
 	},
@@ -667,8 +773,15 @@ watch(
 watch(
 	() => route.query.nav,
 	() => {
+		if (isAdminRoute.value) return
+		visibleHomePostCount.value = HOME_PAGE_SIZE
+		homeFeedPage.value = 1
+		homeFeedHasMore.value = false
 		if (activeNav.value === '推荐') {
+			serverNavPosts.value = null
 			loadRecommendPosts()
+		} else if (!searchKeyword.value.trim()) {
+			loadNavPosts()
 		}
 
 		if (searchKeyword.value.trim()) {
@@ -678,12 +791,44 @@ watch(
 )
 
 watch(
+	() => normalizedSearchKeyword.value,
+	() => {
+		if (isAdminRoute.value) return
+		visibleHomePostCount.value = HOME_PAGE_SIZE
+		homeFeedPage.value = 1
+		homeFeedHasMore.value = false
+		if (!searchKeyword.value.trim() && activeNav.value !== '推荐') {
+			loadNavPosts()
+		}
+	}
+)
+
+watch(
+	() => route.name,
+	() => {
+		if (route.name === 'home') {
+			visibleHomePostCount.value = HOME_PAGE_SIZE
+		}
+	}
+)
+
+watch(
 	() => [isCommunityReady.value, isLoggedIn.value],
 	() => {
+		if (isAdminRoute.value) return
 		if (!isCommunityReady.value) return
 		loadRecommendPosts()
 	},
 	{ immediate: true }
+)
+
+watch(
+	() => isAdminRoute.value,
+	async (value) => {
+		if (value) return
+		if (isCommunityReady.value) return
+		await initCommunityData()
+	}
 )
 
 watch(
@@ -729,6 +874,7 @@ watch(
 watch(
 	() => [isLoggedIn.value, route.query.redirect],
 	() => {
+		if (isAdminRoute.value) return
 		if (!isLoggedIn.value && typeof route.query.redirect === 'string') {
 			openLoginModal()
 			return
@@ -743,7 +889,8 @@ watch(
 </script>
 
 <template>
-	<div class="page">
+	<AdminConsole v-if="currentPage === 'admin'" />
+	<div v-else class="page">
 		<AppTopBar
 			:nav-items="navItems"
 			:active-nav="activeNav"
@@ -761,11 +908,13 @@ watch(
 
 		<HomeContent
 			v-if="currentPage === 'home' && isCommunityReady"
-			:posts="filteredHomePosts"
+			:posts="visibleHomePosts"
 			:quick-actions="quickActions"
 			:search-keyword="searchKeyword"
 			:is-searching="isSearching"
 			:search-error="searchError"
+			:has-more="hasMoreHomePosts"
+			:is-loading-more="isLoadingMoreHomePosts"
 			@go-publish="goPublish"
 			@open-detail="openPostDetail"
 			@open-comment-detail="openPostDetailWithComment"
@@ -773,6 +922,7 @@ watch(
 			@toggle-post-favorite="togglePostFavorite"
 			@toggle-post-follow="togglePostFollow"
 			@open-author-profile="openAuthorProfile"
+			@load-more="loadMoreHomePosts"
 		/>
 
 		<main v-else-if="!isCommunityReady" class="loading-box">

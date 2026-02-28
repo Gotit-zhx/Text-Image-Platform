@@ -17,6 +17,18 @@ export type CommunitySeed = {
 	comments: CommentRecord[]
 }
 
+export type PostsPagination = {
+	total: number
+	page: number
+	pageSize: number
+	hasMore: boolean
+}
+
+export type PagedPostsResult = {
+	posts: Post[]
+	pagination: PostsPagination
+}
+
 type PostDraft = {
 	title: string
 	summary: string
@@ -107,7 +119,7 @@ const mockSeed: CommunitySeed = {
 		{
 			id: 101,
 			title: '城市夜景拍摄记录｜一条街拍到天亮',
-			summary: '测试数据：用于点赞/收藏/关注状态验证，包含多图与较高互动量。',
+			summary: '下班后沿中山路步行 2 公里，用 35mm 定焦记录雨后霓虹，附参数与机位建议。',
 			author: '风起时拍照',
 			time: '02-20',
 			tags: ['摄影', '夜景', '街拍'],
@@ -126,7 +138,7 @@ const mockSeed: CommunitySeed = {
 		{
 			id: 102,
 			title: '手账排版合集｜一周模板分享',
-			summary: '测试数据：用于收藏状态验证，当前设为已收藏、未点赞、未关注作者。',
+			summary: '把工作、学习和运动拆成三栏模板，周日晚复盘 15 分钟就能看清下周重点。',
 			author: '纸页慢生活',
 			time: '02-19',
 			tags: ['手账', '模板', '效率'],
@@ -145,7 +157,7 @@ const mockSeed: CommunitySeed = {
 		{
 			id: 103,
 			title: '三天两晚徒步路线复盘',
-			summary: '测试数据：用于关注状态验证，当前设为已关注作者且已点赞未收藏。',
+			summary: '从松林营地到云海观景台，全程 32 公里，补给点、避雨点和风险路段已标注。',
 			author: '山野日志',
 			time: '02-18',
 			tags: ['徒步', '旅行', '装备'],
@@ -160,7 +172,7 @@ const mockSeed: CommunitySeed = {
 		{
 			id: 104,
 			title: '咖啡拉花新手练习记录（失败合集）',
-			summary: '测试数据：用于未交互场景验证，点赞/收藏/关注均为 false。',
+			summary: '连续练习 10 天，把融合、出缸温度和注奶角度做了对照，失败原因逐条复盘。',
 			author: '清晨一杯',
 			time: '02-17',
 			tags: ['咖啡', '拉花', '日常'],
@@ -178,9 +190,9 @@ const mockSeed: CommunitySeed = {
 			id: 9001,
 			postId: 101,
 			authorId: 5001,
-			author: '测试用户A',
+			author: '阿玖',
 			date: '02-20',
-			content: '测试评论：高赞样本。',
+			content: '第二张机位太好了，红绿灯反光把画面层次拉满了。',
 			likes: 320,
 			isLiked: false,
 			isMine: false
@@ -189,9 +201,9 @@ const mockSeed: CommunitySeed = {
 			id: 9002,
 			postId: 102,
 			authorId: 5002,
-			author: '测试用户B',
+			author: '木子安',
 			date: '02-19',
-			content: '测试评论：中等点赞样本。',
+			content: '我把运动栏换成阅读栏，周目标终于能持续完成。',
 			likes: 58,
 			isLiked: true,
 			isMine: false
@@ -242,40 +254,99 @@ export const getCommunitySeedApi = async (): Promise<CommunitySeed> => {
 export const searchPostsApi = async (
 	keyword: string,
 	nav: string,
-	options?: { signal?: AbortSignal }
-): Promise<Post[]> => {
+	options?: { signal?: AbortSignal; page?: number; pageSize?: number }
+): Promise<PagedPostsResult> => {
+	const page = Math.max(1, options?.page || 1)
+	const pageSize = Math.max(1, options?.pageSize || 12)
+	const offset = (page - 1) * pageSize
+
 	if (USE_MOCK_API) {
 		const normalizedKeyword = keyword.trim().toLowerCase()
 		const navFiltered = filterByNav(getMockCommunitySeed().posts, nav)
-		if (!normalizedKeyword) return navFiltered
+		const filtered = !normalizedKeyword
+			? navFiltered
+			: navFiltered.filter((post) => {
+					const source = [post.title, post.summary, post.author, ...(post.tags || [])]
+						.join(' ')
+						.toLowerCase()
+					return source.includes(normalizedKeyword)
+			  })
 
-		return navFiltered.filter((post) => {
-			const source = [post.title, post.summary, post.author, ...(post.tags || [])]
-				.join(' ')
-				.toLowerCase()
-			return source.includes(normalizedKeyword)
-		})
+		const items = filtered.slice(offset, offset + pageSize)
+		return {
+			posts: items,
+			pagination: {
+				total: filtered.length,
+				page,
+				pageSize,
+				hasMore: offset + items.length < filtered.length
+			}
+		}
 	}
 
 	const query = new URLSearchParams({
 		q: keyword,
-		nav
+		nav,
+		page: String(page),
+		pageSize: String(pageSize)
 	})
 
-	const response = await apiRequest<{ posts: Post[] }>(`/community/search?${query.toString()}`, {
+	const response = await apiRequest<{ posts: Post[]; pagination?: PostsPagination }>(
+		`/community/search?${query.toString()}`,
+		{
 		signal: options?.signal
-	})
-	return response.posts
+		}
+	)
+	return {
+		posts: response.posts,
+		pagination: response.pagination || {
+			total: response.posts.length,
+			page,
+			pageSize,
+			hasMore: response.posts.length === pageSize
+		}
+	}
 }
 
-export const recommendPostsApi = async (k = 20): Promise<Post[]> => {
+export const recommendPostsApi = async (
+	k = 20,
+	options?: { page?: number; pageSize?: number }
+): Promise<PagedPostsResult> => {
+	const page = Math.max(1, options?.page || 1)
+	const pageSize = Math.max(1, options?.pageSize || 12)
+	const offset = (page - 1) * pageSize
+
 	if (USE_MOCK_API) {
-		return sortByLikesDesc(getMockCommunitySeed().posts).slice(0, k)
+		const sorted = sortByLikesDesc(getMockCommunitySeed().posts)
+		const items = sorted.slice(offset, offset + pageSize)
+		return {
+			posts: items,
+			pagination: {
+				total: sorted.length,
+				page,
+				pageSize,
+				hasMore: offset + items.length < sorted.length
+			}
+		}
 	}
 
-	const query = new URLSearchParams({ k: String(k) })
-	const response = await apiRequest<{ posts: Post[] }>(`/community/recommend?${query.toString()}`)
-	return response.posts
+	const query = new URLSearchParams({
+		k: String(k),
+		page: String(page),
+		pageSize: String(pageSize)
+	})
+	const response = await apiRequest<{ posts: Post[]; pagination?: PostsPagination }>(
+		`/community/recommend?${query.toString()}`
+	)
+	return {
+		posts: response.posts,
+		pagination: response.pagination || {
+			total: response.posts.length,
+			page,
+			pageSize,
+			hasMore: response.posts.length === pageSize
+		}
+	}
 }
 
 export const publishPostApi = async (payload: PublishPayload, authorName: string): Promise<Post> => {
