@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { ChatDotRound, Pointer, Star } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { ChatDotRound, Pointer, Share, Star } from '@element-plus/icons-vue'
 import type { Post } from '../../types'
+import { formatCount, resolvePostImageStyle } from '../../utils/postUi'
 
-defineProps<{
+const props = defineProps<{
 	post: Post
 	actionText?: string
 }>()
+
+const displayImages = computed(() => {
+	const images = props.post.images || []
+	if (images.length === 0) return []
+	if (images.length > 3) return []
+	return images
+})
 
 const emit = defineEmits<{
 	(e: 'open-detail', postId: number): void
@@ -13,30 +22,9 @@ const emit = defineEmits<{
 	(e: 'open-comment-detail', postId: number): void
 	(e: 'toggle-post-like', postId: number): void
 	(e: 'toggle-post-favorite', postId: number): void
+	(e: 'share-post', postId: number): void
 	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
 }>()
-
-const formatCount = (count: number): string => {
-	if (count >= 10000) {
-		const value = count / 10000
-		const formatted = (Math.floor(value * 10) / 10).toString().replace(/\.0$/, '')
-		return `${formatted}万+`
-	}
-
-	return `${count}`
-}
-
-const getImageStyle = (image: string) => {
-	if (/^(linear-gradient|radial-gradient|conic-gradient)\(/.test(image)) {
-		return { background: image }
-	}
-
-	return {
-		backgroundImage: `url(${image})`,
-		backgroundSize: 'cover',
-		backgroundPosition: 'center'
-	}
-}
 
 const statusLabelMap: Record<string, string> = {
 	pending: '待审核',
@@ -90,12 +78,12 @@ const statusTypeMap: Record<string, 'info' | 'success' | 'warning' | 'danger'> =
 
 		<p class="summary">{{ post.summary }}</p>
 
-		<div v-if="post.images.length" class="images" :class="{ single: post.images.length === 1 }">
+		<div v-if="displayImages.length" class="images" :class="{ single: displayImages.length === 1 }">
 			<div
-				v-for="(image, idx) in post.images"
+				v-for="(image, idx) in displayImages"
 				:key="`${post.id}-${idx}`"
 				class="img"
-				:style="getImageStyle(image)"
+				:style="resolvePostImageStyle(image)"
 			>
 				<span class="img-watermark">图文</span>
 			</div>
@@ -121,6 +109,10 @@ const statusTypeMap: Record<string, 'info' | 'success' | 'warning' | 'danger'> =
 			>
 				<el-icon><Star /></el-icon>
 				{{ post.isFavorited ? '已收藏' : '收藏' }}
+			</button>
+			<button class="stats-btn" @click.stop="emit('share-post', post.id)">
+				<el-icon><Share /></el-icon>
+				分享
 			</button>
 		</div>
 	</article>

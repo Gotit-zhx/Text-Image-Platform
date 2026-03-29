@@ -137,6 +137,7 @@ defineExpose({
 	border: 1px solid #e9edf3;
 	border-radius: 12px;
 	padding: 16px 18px;
+	box-shadow: 0 8px 22px rgba(24, 40, 72, 0.05);
 }
 
 .editor-tip {
@@ -150,6 +151,7 @@ defineExpose({
 	border: 1px solid #e3e7ef;
 	border-radius: 8px;
 	padding: 10px;
+	background: #fcfdff;
 }
 
 .editor-box textarea {
@@ -178,6 +180,12 @@ defineExpose({
 	color: #fff;
 	font-weight: 600;
 	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.comment-btn:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 8px 16px rgba(17, 176, 246, 0.28);
 }
 
 .comment-btn:disabled {
@@ -227,6 +235,12 @@ defineExpose({
 	display: flex;
 	gap: 12px;
 	padding-top: 12px;
+	border-radius: 10px;
+	transition: background 0.15s ease;
+}
+
+.comment-item:hover {
+	background: #fafcff;
 }
 
 .comment-item + .comment-item {
@@ -266,15 +280,16 @@ defineExpose({
 }
 
 .name {
-	font-size: 18px;
+	font-size: 16px;
 	color: #4a5368;
 	font-weight: 600;
 }
 
 .comment-content {
 	margin: 12px 0;
-	font-size: 17px;
+	font-size: 15px;
 	color: #464f62;
+	line-height: 1.7;
 }
 
 .comment-bottom {

@@ -19,6 +19,7 @@ const {
 	error,
 	overview,
 	posts,
+	currentPostDetail,
 	postsPagination,
 	comments,
 	commentsPagination,
@@ -32,12 +33,14 @@ const {
 	loadOverview,
 	loadPosts,
 	reviewPost,
+	reviewPostsBatch,
+	loadPostDetail,
 	loadComments,
 	hideComment,
 	restoreComment,
 	deleteComment,
 	loadUsers,
-	updateUserRoles,
+	updateUserAdmin,
 	loadLogs
 } = useAdminState()
 
@@ -86,10 +89,24 @@ const handleLogout = async () => {
 	router.replace({ name: 'admin-login' })
 }
 
-const handleReviewPost = async (payload: { id: number; action: 'approve' | 'reject' | 'offline' }) => {
-	await reviewPost(payload.id, payload.action)
+const handleReviewPost = async (payload: { id: number; action: 'approve' | 'reject' | 'offline'; reason?: string }) => {
+	await reviewPost(payload.id, payload.action, payload.reason || '')
 	ElMessage.success('操作成功')
 	await loadPosts({ ...postsQuery })
+}
+
+const handleReviewPostsBatch = async (payload: {
+	ids: number[]
+	action: 'approve' | 'reject' | 'offline'
+	reason?: string
+}) => {
+	await reviewPostsBatch(payload.ids, payload.action, payload.reason || '')
+	ElMessage.success(`已批量处理 ${payload.ids.length} 条`)
+	await loadPosts({ ...postsQuery })
+}
+
+const handleOpenPostDetail = async (id: number) => {
+	await loadPostDetail(id)
 }
 
 const handlePostsQueryChange = async (payload: {
@@ -130,9 +147,9 @@ const handleCommentsQueryChange = async (payload: {
 	await loadComments({ ...commentsQuery })
 }
 
-const handleSetRoles = async (payload: { id: number; roles: string[] }) => {
-	await updateUserRoles(payload.id, payload.roles)
-	ElMessage.success('角色已更新')
+const handleSetAdmin = async (payload: { id: number; isAdmin: boolean }) => {
+	await updateUserAdmin(payload.id, payload.isAdmin)
+	ElMessage.success(payload.isAdmin ? '已设为管理员' : '已取消管理员')
 	await loadUsers({ ...usersQuery })
 }
 
@@ -172,16 +189,16 @@ watch(
 		<el-aside class="sidebar" width="220px">
 			<div class="brand">后台管理</div>
 			<el-menu :default-active="currentTab" class="menu" @select="goTab">
-				<el-menu-item index="dashboard">Dashboard</el-menu-item>
+				<el-menu-item index="dashboard">控制台</el-menu-item>
 				<el-menu-item index="posts">帖子审核</el-menu-item>
 				<el-menu-item index="comments">评论管理</el-menu-item>
-				<el-menu-item index="users">用户角色</el-menu-item>
+				<el-menu-item index="users">用户管理</el-menu-item>
 				<el-menu-item index="logs">审计日志</el-menu-item>
 			</el-menu>
 		</el-aside>
 		<el-container>
 			<el-header class="toolbar">
-				<div class="operator">{{ adminUser?.name }}（{{ adminUser?.roles?.join(', ') || '-' }}）</div>
+				<div class="operator">{{ adminUser?.name }}（{{ adminUser?.isAdmin ? '管理员' : '普通用户' }}）</div>
 				<el-button @click="handleLogout">退出</el-button>
 			</el-header>
 			<el-main class="content">
@@ -196,7 +213,10 @@ watch(
 					:keyword="postsQuery.keyword"
 					@refresh="loadPosts({ ...postsQuery })"
 					@review="handleReviewPost"
+					@batch-review="handleReviewPostsBatch"
+					@open-detail="handleOpenPostDetail"
 					@query-change="handlePostsQueryChange"
+					:current-detail="currentPostDetail"
 				/>
 				<AdminCommentsPage
 					v-else-if="currentTab === 'comments'"
@@ -218,7 +238,7 @@ watch(
 					:pagination="usersPagination"
 					:keyword="usersQuery.keyword"
 					@refresh="loadUsers({ ...usersQuery })"
-					@set-roles="handleSetRoles"
+					@set-admin="handleSetAdmin"
 					@query-change="handleUsersQueryChange"
 				/>
 				<AdminAuditLogsPage

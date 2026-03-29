@@ -46,6 +46,37 @@ const handleReset = () => {
 	localTargetType.value = ''
 	emit('query-change', { page: 1, action: '', targetType: '' })
 }
+
+const actionOptions = [
+	{ label: '帖子审核', value: 'post.review' },
+	{ label: '隐藏评论', value: 'comment.hide' },
+	{ label: '恢复评论', value: 'comment.restore' },
+	{ label: '删除评论', value: 'comment.delete' },
+	{ label: '管理员权限变更', value: 'user.roles.update' }
+]
+
+const targetTypeOptions = [
+	{ label: '帖子', value: 'post' },
+	{ label: '评论', value: 'comment' },
+	{ label: '用户', value: 'user' }
+]
+
+const actionLabelMap: Record<string, string> = {
+	'post.review': '帖子审核',
+	'comment.hide': '隐藏评论',
+	'comment.restore': '恢复评论',
+	'comment.delete': '删除评论',
+	'user.roles.update': '管理员权限变更'
+}
+
+const targetTypeLabelMap: Record<string, string> = {
+	post: '帖子',
+	comment: '评论',
+	user: '用户'
+}
+
+const formatAction = (action: string) => actionLabelMap[action] || '其他操作'
+const formatTargetType = (targetType: string) => targetTypeLabelMap[targetType] || '其他对象'
 </script>
 
 <template>
@@ -53,8 +84,12 @@ const handleReset = () => {
 		<div class="head">
 			<div class="title">审计日志</div>
 			<div class="filters">
-				<el-input v-model="localAction" clearable placeholder="动作，如 post.review" style="width: 220px" @keyup.enter="handleSearch" />
-				<el-input v-model="localTargetType" clearable placeholder="对象类型，如 post/comment" style="width: 220px" @keyup.enter="handleSearch" />
+				<el-select v-model="localAction" clearable placeholder="动作类型" style="width: 220px">
+					<el-option v-for="item in actionOptions" :key="item.value" :label="item.label" :value="item.value" />
+				</el-select>
+				<el-select v-model="localTargetType" clearable placeholder="对象类型" style="width: 220px">
+					<el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+				</el-select>
 				<el-button type="primary" @click="handleSearch">查询</el-button>
 				<el-button @click="handleReset">重置</el-button>
 				<el-button @click="emit('refresh')">刷新</el-button>
@@ -65,9 +100,11 @@ const handleReset = () => {
 			<el-table-column prop="actorName" label="操作者" width="140">
 				<template #default="scope">{{ scope.row.actorName || '-' }}</template>
 			</el-table-column>
-			<el-table-column prop="action" label="动作" min-width="180" />
+			<el-table-column label="动作" min-width="180">
+				<template #default="scope">{{ formatAction(scope.row.action) }}</template>
+			</el-table-column>
 			<el-table-column label="对象" min-width="140">
-				<template #default="scope">{{ scope.row.targetType }}#{{ scope.row.targetId }}</template>
+				<template #default="scope">{{ formatTargetType(scope.row.targetType) }}#{{ scope.row.targetId }}</template>
 			</el-table-column>
 			<el-table-column prop="ip" label="IP" width="140" />
 			<el-table-column prop="createdAt" label="时间" min-width="180" />

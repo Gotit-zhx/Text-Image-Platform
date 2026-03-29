@@ -21,6 +21,18 @@ export type AdminPostItem = {
 	reviewedBy?: string
 }
 
+export type AdminPostDetail = {
+	id: number
+	title: string
+	summary: string
+	contentHtml: string
+	author: string
+	status: 'pending' | 'approved' | 'rejected' | 'offline'
+	reviewReason: string
+	reviewedBy?: string
+	reviewedAt?: string | null
+}
+
 export type AdminCommentItem = {
 	id: number
 	content: string
@@ -38,7 +50,6 @@ export type AdminUserItem = {
 	email: string
 	isActive: boolean
 	isAdmin: boolean
-	roles: string[]
 }
 
 export type AdminAuditItem = {
@@ -89,6 +100,15 @@ export const reviewAdminPostApi = (postId: number, action: string, reason = '') 
 		body: JSON.stringify({ action, reason })
 	})
 
+export const reviewAdminPostBatchApi = (postIds: number[], action: string, reason = '') =>
+	apiRequest<{ updated: number; status: string; postIds: number[] }>(`/admin/moderation/posts/batch-review`, {
+		method: 'POST',
+		body: JSON.stringify({ postIds, action, reason })
+	})
+
+export const getAdminPostDetailApi = (postId: number) =>
+	apiRequest<AdminPostDetail>(`/admin/moderation/posts/${postId}`)
+
 export const getAdminCommentsApi = (params: {
 	page?: number
 	pageSize?: number
@@ -128,10 +148,10 @@ export const getAdminUsersApi = (params: { page?: number; pageSize?: number; key
 	return apiRequest<{ items: AdminUserItem[]; pagination: Pagination }>(`/admin/users?${query.toString()}`)
 }
 
-export const updateAdminUserRolesApi = (userId: number, roles: string[]) =>
-	apiRequest<{ id: number; roles: string[]; isAdmin: boolean }>(`/admin/users/${userId}/roles`, {
+export const updateAdminUserAdminApi = (userId: number, isAdmin: boolean) =>
+	apiRequest<{ id: number; isAdmin: boolean }>(`/admin/users/${userId}/roles`, {
 		method: 'PUT',
-		body: JSON.stringify({ roles })
+		body: JSON.stringify({ isAdmin })
 	})
 
 export const getAdminAuditLogsApi = (params: { page?: number; pageSize?: number; action?: string; targetType?: string }) => {

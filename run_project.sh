@@ -6,7 +6,14 @@ BACKEND_DIR="$ROOT_DIR/backend_django"
 FRONTEND_DIR="$ROOT_DIR/frontend_vue"
 LOG_DIR="$ROOT_DIR/.run_logs"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/zhx/miniconda3/envs/tip/bin/python}"
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
@@ -32,10 +39,19 @@ done
 
 mkdir -p "$LOG_DIR"
 
-if [[ ! -x "$PYTHON_BIN" ]]; then
+if [[ "$PYTHON_BIN" == */* ]]; then
+  PYTHON_CMD="$PYTHON_BIN"
+elif command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  PYTHON_CMD="$(command -v "$PYTHON_BIN")"
+else
+  PYTHON_CMD=""
+fi
+
+if [[ -z "$PYTHON_CMD" ]] || [[ ! -x "$PYTHON_CMD" ]]; then
   echo "Python 不可执行: $PYTHON_BIN"
   echo "请设置环境变量 PYTHON_BIN，例如:"
-  echo "  PYTHON_BIN=/home/zhx/miniconda3/envs/tip/bin/python ./run_project.sh"
+  echo "  PYTHON_BIN=./venv/bin/python ./run_project.sh"
+  echo "或：PYTHON_BIN=$(which python3) ./run_project.sh"
   exit 1
 fi
 
@@ -46,7 +62,7 @@ fi
 
 if [[ "$AUTO_INSTALL" -eq 1 ]]; then
   echo "[1/4] 安装后端依赖..."
-  (cd "$BACKEND_DIR" && "$PYTHON_BIN" -m pip install -r requirements.txt)
+  (cd "$BACKEND_DIR" && "$PYTHON_CMD" -m pip install -r requirements.txt)
 
   echo "[2/4] 安装前端依赖..."
   (cd "$FRONTEND_DIR" && npm install)
@@ -55,7 +71,7 @@ else
 fi
 
 echo "[3/4] 执行后端迁移..."
-(cd "$BACKEND_DIR" && "$PYTHON_BIN" manage.py migrate)
+(cd "$BACKEND_DIR" && "$PYTHON_CMD" manage.py migrate)
 
 BACKEND_PATTERN="manage.py runserver $BACKEND_HOST:$BACKEND_PORT"
 FRONTEND_PATTERN="vite --host $FRONTEND_HOST --port $FRONTEND_PORT"
@@ -102,7 +118,7 @@ trap cleanup EXIT INT TERM
 echo "[4/4] 启动后端与前端..."
 (
   cd "$BACKEND_DIR"
-  "$PYTHON_BIN" manage.py runserver "$BACKEND_HOST:$BACKEND_PORT" --noreload
+  "$PYTHON_CMD" manage.py runserver "$BACKEND_HOST:$BACKEND_PORT" --noreload
 ) >"$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 

@@ -1,41 +1,30 @@
 <script setup lang="ts">
-import { ChatDotRound, Pointer, Star } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { ChatDotRound, Pointer, Share, Star } from '@element-plus/icons-vue'
 import type { Post } from '../../types'
+import { formatCount, resolvePostImageStyle } from '../../utils/postUi'
 
-defineProps<{
+const props = defineProps<{
 	post: Post
 }>()
+
+const displayImages = computed(() => {
+	const images = props.post.images || []
+	if (images.length === 0) return []
+	if (images.length > 3) return []
+	return images
+})
 
 const emit = defineEmits<{
 	(e: 'open-detail', postId: number): void
 	(e: 'open-comment-detail', postId: number): void
 	(e: 'toggle-post-like', postId: number): void
 	(e: 'toggle-post-favorite', postId: number): void
+	(e: 'share-post', postId: number): void
 	(e: 'toggle-post-follow', postId: number): void
 	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
 }>()
 
-const formatCount = (count: number): string => {
-	if (count >= 10000) {
-		const value = count / 10000
-		const formatted = (Math.floor(value * 10) / 10).toString().replace(/\.0$/, '')
-		return `${formatted}万+`
-	}
-
-	return `${count}`
-}
-
-const getImageStyle = (image: string) => {
-	if (/^(linear-gradient|radial-gradient|conic-gradient)\(/.test(image)) {
-		return { background: image }
-	}
-
-	return {
-		backgroundImage: `url(${image})`,
-		backgroundSize: 'cover',
-		backgroundPosition: 'center'
-	}
-}
 </script>
 
 <template>
@@ -58,6 +47,9 @@ const getImageStyle = (image: string) => {
 							{{ post.author }}
 						</span>
 						<span class="time">{{ post.time }}</span>
+						<span v-if="post.moderationStatus && post.moderationStatus !== 'approved'" class="status-tag">
+							{{ post.moderationStatus }}
+						</span>
 					</div>
 					<h3 class="title">{{ post.title }}</h3>
 				</div>
@@ -70,12 +62,12 @@ const getImageStyle = (image: string) => {
 
 		<p class="summary">{{ post.summary }}</p>
 
-		<div v-if="post.images.length" class="images" :class="{ single: post.images.length === 1 }">
+		<div v-if="displayImages.length" class="images" :class="{ single: displayImages.length === 1 }">
 			<div
-				v-for="(image, idx) in post.images"
+				v-for="(image, idx) in displayImages"
 				:key="`${post.id}-${idx}`"
 				class="img"
-				:style="getImageStyle(image)"
+				:style="resolvePostImageStyle(image)"
 			>
 				<span class="img-watermark">图文</span>
 			</div>
@@ -102,6 +94,10 @@ const getImageStyle = (image: string) => {
 				<el-icon><Star /></el-icon>
 				{{ post.isFavorited ? '已收藏' : '收藏' }}
 			</button>
+			<button class="stats-btn" @click.stop="emit('share-post', post.id)">
+				<el-icon><Share /></el-icon>
+				分享
+			</button>
 		</div>
 	</article>
 </template>
@@ -113,6 +109,13 @@ const getImageStyle = (image: string) => {
 	border: 1px solid #e9edf3;
 	padding: 16px 20px 14px;
 	cursor: pointer;
+	transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+	transform: translateY(-2px);
+	border-color: #dce4f5;
+	box-shadow: 0 10px 24px rgba(25, 40, 74, 0.08);
 }
 
 .card-head {
@@ -157,6 +160,16 @@ const getImageStyle = (image: string) => {
 	color: #8c94a7;
 }
 
+.status-tag {
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	line-height: 1.3;
+	color: #7f5e00;
+	background: #fff8de;
+	border: 1px solid #ffe8a3;
+}
+
 .author {
 	font-size: 13px;
 	font-weight: 600;
@@ -193,6 +206,10 @@ const getImageStyle = (image: string) => {
 	color: #697084;
 	font-size: 14px;
 	line-height: 1.6;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 
 .images {
@@ -239,6 +256,7 @@ const getImageStyle = (image: string) => {
 	font-size: 12px;
 	border-radius: 999px;
 	padding: 4px 10px;
+	border: 1px solid #e6ebf3;
 }
 
 .stats {
@@ -260,6 +278,11 @@ const getImageStyle = (image: string) => {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
+	transition: color 0.15s ease;
+}
+
+.stats-btn:hover {
+	color: #5a6787;
 }
 
 .stats-btn.liked {

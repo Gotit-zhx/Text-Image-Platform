@@ -12,11 +12,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
 	(e: 'refresh'): void
-	(e: 'set-roles', payload: { id: number; roles: string[] }): void
+	(e: 'set-admin', payload: { id: number; isAdmin: boolean }): void
 	(e: 'query-change', payload: { page?: number; pageSize?: number; keyword?: string }): void
 }>()
-
-const roleCandidates = ['super_admin', 'content_moderator', 'operations', 'auditor']
 const localKeyword = ref(props.keyword)
 
 watch(
@@ -34,15 +32,12 @@ const handleReset = () => {
 	localKeyword.value = ''
 	emit('query-change', { page: 1, keyword: '' })
 }
-
-const toggleRole = (roles: string[], role: string) =>
-	roles.includes(role) ? roles.filter((item) => item !== role) : [...roles, role]
 </script>
 
 <template>
 	<el-card class="panel" shadow="never">
 		<div class="head">
-			<div class="title">用户角色</div>
+			<div class="title">用户管理</div>
 			<div class="filters">
 				<el-input v-model="localKeyword" clearable placeholder="用户/邮箱关键词" style="width: 240px" @keyup.enter="handleSearch" />
 				<el-button type="primary" @click="handleSearch">查询</el-button>
@@ -54,26 +49,22 @@ const toggleRole = (roles: string[], role: string) =>
 			<el-table-column prop="id" label="ID" width="80" />
 			<el-table-column prop="name" label="用户" width="150" />
 			<el-table-column prop="email" label="邮箱" min-width="220" />
-			<el-table-column label="角色" min-width="280">
+			<el-table-column label="管理员" width="120">
 				<template #default="scope">
-					<el-space wrap>
-						<el-tag v-for="role in scope.row.roles" :key="role" type="info">{{ role }}</el-tag>
-						<span v-if="!scope.row.roles.length">-</span>
-					</el-space>
+					<el-tag :type="scope.row.isAdmin ? 'success' : 'info'">
+						{{ scope.row.isAdmin ? '是' : '否' }}
+					</el-tag>
 				</template>
 			</el-table-column>
-			<el-table-column label="操作" min-width="320" fixed="right">
+			<el-table-column label="操作" min-width="180" fixed="right">
 				<template #default="scope">
-					<el-space wrap>
-						<el-button
-							v-for="role in roleCandidates"
-							:key="role"
-							size="small"
-							@click="emit('set-roles', { id: scope.row.id, roles: toggleRole(scope.row.roles, role) })"
-						>
-							{{ role }}
-						</el-button>
-					</el-space>
+					<el-button
+						size="small"
+						:type="scope.row.isAdmin ? 'warning' : 'primary'"
+						@click="emit('set-admin', { id: scope.row.id, isAdmin: !scope.row.isAdmin })"
+					>
+						{{ scope.row.isAdmin ? '取消管理员' : '设为管理员' }}
+					</el-button>
 				</template>
 			</el-table-column>
 		</el-table>

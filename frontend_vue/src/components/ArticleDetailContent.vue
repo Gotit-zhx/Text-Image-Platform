@@ -16,6 +16,7 @@ const emit = defineEmits<{
 	(e: 'toggle-post-like', postId: number): void
 	(e: 'toggle-post-favorite', postId: number): void
 	(e: 'toggle-post-follow', postId: number): void
+	(e: 'share-post', postId: number): void
 	(e: 'submit-comment', postId: number, content: string): void
 	(e: 'toggle-comment-like', commentId: number): void
 	(e: 'delete-comment', commentId: number): void
@@ -72,6 +73,7 @@ watch(
 			@toggle-like="post && emit('toggle-post-like', post.id)"
 			@toggle-favorite="post && emit('toggle-post-favorite', post.id)"
 			@toggle-follow="post && emit('toggle-post-follow', post.id)"
+			@share-post="post && emit('share-post', post.id)"
 		/>
 	</main>
 </template>

@@ -125,6 +125,63 @@ class CommunityApiTests(TestCase):
         post.refresh_from_db()
         self.assertEqual(post.moderation_status, 'offline')
 
+    def test_admin_batch_review_success(self):
+        admin = User.objects.create_user(
+            username='admin_batch',
+            email='admin_batch@example.com',
+            password='123456',
+            is_staff=True,
+            is_superuser=True,
+        )
+        group, _ = Group.objects.get_or_create(name='super_admin')
+        admin.groups.add(group)
+        author = User.objects.create_user(username='writer_batch', email='writer_batch@example.com', password='123456')
+        post1 = Post.objects.create(author=author, title='待批量1', summary='s', content_html='c')
+        post2 = Post.objects.create(author=author, title='待批量2', summary='s', content_html='c')
+
+        self.client.force_login(admin)
+        response = self._post_json(
+            '/api/admin/moderation/posts/batch-review',
+            {'postIds': [post1.id, post2.id], 'action': 'approve', 'reason': ''},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['data']['updated'], 2)
+
+        post1.refresh_from_db()
+        post2.refresh_from_db()
+        self.assertEqual(post1.moderation_status, 'approved')
+        self.assertEqual(post2.moderation_status, 'approved')
+
+    def test_admin_keyword_search_supports_author_and_email(self):
+        admin = User.objects.create_user(
+            username='admin_kw',
+            email='admin_kw@example.com',
+            password='123456',
+            is_staff=True,
+            is_superuser=True,
+        )
+        group, _ = Group.objects.get_or_create(name='super_admin')
+        admin.groups.add(group)
+
+        writer = User.objects.create_user(username='目标作者', email='writer_kw@example.com', password='123456')
+        reader = User.objects.create_user(username='目标读者', email='reader_kw@example.com', password='123456')
+        post = Post.objects.create(author=writer, title='普通标题', summary='s', content_html='c')
+        Comment.objects.create(post=post, author=reader, content='普通评论')
+
+        self.client.force_login(admin)
+
+        posts_resp = self.client.get('/api/admin/moderation/posts?keyword=目标作者')
+        self.assertEqual(posts_resp.status_code, 200)
+        self.assertGreaterEqual(len(posts_resp.json()['data']['items']), 1)
+
+        comments_resp = self.client.get('/api/admin/moderation/comments?keyword=目标读者')
+        self.assertEqual(comments_resp.status_code, 200)
+        self.assertGreaterEqual(len(comments_resp.json()['data']['items']), 1)
+
+        users_resp = self.client.get('/api/admin/users?keyword=reader_kw@example.com')
+        self.assertEqual(users_resp.status_code, 200)
+        self.assertGreaterEqual(len(users_resp.json()['data']['items']), 1)
+
     def test_update_profile_persisted(self):
         user = User.objects.create_user(username='before_name', email='before@example.com', password='123456')
         self.client.force_login(user)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChatDotRound, Pointer, Star } from '@element-plus/icons-vue'
+import { ChatDotRound, Pointer, Share, Star } from '@element-plus/icons-vue'
 defineProps<{
 	isLiked?: boolean
 	likeCount?: number
@@ -12,6 +12,7 @@ const emit = defineEmits<{
 	(e: 'toggle-like'): void
 	(e: 'toggle-favorite'): void
 	(e: 'toggle-follow'): void
+	(e: 'share-post'): void
 }>()
 </script>
 
@@ -40,6 +41,10 @@ const emit = defineEmits<{
 			>
 				<el-icon><Star /></el-icon>
 				{{ isFavorited ? '已收藏' : '收藏' }}
+			</button>
+			<button class="action-item" title="分享" @click="emit('share-post')">
+				<el-icon><Share /></el-icon>
+				分享
 			</button>
 		</div>
 	</aside>

@@ -42,15 +42,21 @@ def export_interactions_csv(export_csv: Path) -> int:
 
     interactions: Dict[Tuple[int, int], Dict[str, bool]] = {}
 
-    for row in PostInteraction.objects.values('user_id', 'post_id', 'is_liked', 'is_favorited'):
+    for row in PostInteraction.objects.values('user_id', 'post_id', 'is_read', 'is_liked', 'is_favorited', 'is_shared'):
         key = (int(row['user_id']), int(row['post_id']))
         cur = interactions.setdefault(
             key,
             {'read': False, 'like': False, 'favorite': False, 'share': False},
         )
-        cur['read'] = True
+        cur['read'] = bool(
+            row.get('is_read')
+            or row.get('is_liked')
+            or row.get('is_favorited')
+            or row.get('is_shared')
+        )
         cur['like'] = bool(row['is_liked'])
         cur['favorite'] = bool(row['is_favorited'])
+        cur['share'] = bool(row.get('is_shared'))
 
     for row in Comment.objects.values('author_id', 'post_id'):
         key = (int(row['author_id']), int(row['post_id']))

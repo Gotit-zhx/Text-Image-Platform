@@ -2,6 +2,7 @@
 // 审查状态：部分完成（鉴权/路由/搜索已接入，社区写链路与权限守卫持续加固中）
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import AppTopBar from './components/AppTopBar.vue'
 import HomeContent from './components/HomeContent.vue'
 import ProfileContent from './components/ProfileContent.vue'
@@ -85,6 +86,19 @@ const activeNav = computed(() => {
 	return navItems.includes(navQuery) ? navQuery : '推荐'
 })
 
+const topbarNavItems = computed(() =>
+	isLoggedIn.value
+		? navItems
+		: navItems.filter((item) => item !== '推荐' && item !== '关注')
+)
+
+const topbarActiveNav = computed(() => {
+	if (route.name === 'detail' || route.name === 'publish' || route.name === 'edit' || route.name === 'profile') {
+		return ''
+	}
+	return activeNav.value
+})
+
 const viewedProfileUser = ref<LoginUser | null>(null)
 const serverSearchPosts = ref<Post[] | null>(null)
 const serverRecommendedPosts = ref<Post[] | null>(null)
@@ -142,6 +156,8 @@ const {
 	togglePostLike: togglePostLikeAction,
 	togglePostFavorite: togglePostFavoriteAction,
 	togglePostFollow: togglePostFollowAction,
+	trackPostRead: trackPostReadAction,
+	trackPostShare: trackPostShareAction,
 	submitComment: submitCommentAction,
 	toggleCommentLike: toggleCommentLikeAction,
 	deleteComment: deleteCommentAction,
@@ -250,6 +266,12 @@ const goHome = () => {
 }
 
 const openPostDetail = (postId: number, focusComment = false) => {
+	if (isLoggedIn.value) {
+		runGuardedAction(async () => {
+			await trackPostReadAction(postId)
+		})
+	}
+
 	router.push({
 		name: 'detail',
 		params: { id: String(postId) },
@@ -312,6 +334,68 @@ const togglePostFollow = async (postId: number) => {
 	await runGuardedAction(async () => {
 		await togglePostFollowAction(postId)
 	})
+}
+
+const sharePost = async (postId: number) => {
+	const target = posts.value.find((item) => item.id === postId)
+	if (!target) return
+
+	const detailHref = router.resolve({
+		name: 'detail',
+		params: { id: String(postId) }
+	}).href
+	const shareUrl = detailHref.startsWith('http')
+		? detailHref
+		: `${window.location.origin}${detailHref}`
+
+	const sharePayload = {
+		title: target.title,
+		text: target.summary || target.title,
+		url: shareUrl
+	}
+
+	let shareSucceeded = false
+
+	if (navigator.share) {
+		try {
+			await navigator.share(sharePayload)
+			shareSucceeded = true
+		} catch (error) {
+			if (error instanceof Error && error.name === 'AbortError') {
+				return
+			}
+		}
+	}
+
+	if (!shareSucceeded) {
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(shareUrl)
+			} else {
+				const textarea = document.createElement('textarea')
+				textarea.value = shareUrl
+				textarea.style.position = 'fixed'
+				textarea.style.left = '-9999px'
+				document.body.appendChild(textarea)
+				textarea.select()
+				document.execCommand('copy')
+				document.body.removeChild(textarea)
+			}
+			shareSucceeded = true
+			ElMessage.success('分享链接已复制')
+		} catch {
+			ElMessage.error('分享失败，请稍后重试')
+			return
+		}
+	}
+
+	if (shareSucceeded && isLoggedIn.value) {
+		try {
+			await trackPostShareAction(postId)
+		} catch {
+			// 分享成功但埋点上报失败时静默处理，避免打断用户。
+		}
+	}
 }
 
 const submitComment = async (postId: number, content: string) => {
@@ -747,10 +831,19 @@ const handleChangePassword = (payload: PasswordChangePayload) => {
 	changePassword(payload)
 }
 
+const handleLogin = async () => {
+	const wasLoggedIn = isLoggedIn.value
+	await mockLogin()
+	if (wasLoggedIn || !isLoggedIn.value) return
+	await router.replace({ name: 'home', query: { nav: '推荐' } })
+	window.location.reload()
+}
+
 const handleLogout = async () => {
 	await mockLogout()
 	viewedProfileUser.value = null
-	router.push({ name: 'home' })
+	await router.replace({ name: 'home', query: { nav: '推荐' } })
+	window.location.reload()
 }
 
 watch(
@@ -950,8 +1043,8 @@ watch(
 	<AdminConsole v-if="currentPage === 'admin'" />
 	<div v-else class="page">
 		<AppTopBar
-			:nav-items="navItems"
-			:active-nav="activeNav"
+			:nav-items="topbarNavItems"
+			:active-nav="topbarActiveNav"
 			:is-logged-in="isLoggedIn"
 			:login-user="loginUser"
 			:search-keyword="searchKeyword"
@@ -978,6 +1071,7 @@ watch(
 			@open-comment-detail="openPostDetailWithComment"
 			@toggle-post-like="togglePostLike"
 			@toggle-post-favorite="togglePostFavorite"
+			@share-post="sharePost"
 			@toggle-post-follow="togglePostFollow"
 			@open-author-profile="openAuthorProfile"
 			@load-more="loadMoreHomePosts"
@@ -1007,6 +1101,7 @@ watch(
 			@open-comment-detail="openPostDetailWithComment"
 			@toggle-post-like="togglePostLike"
 			@toggle-post-favorite="togglePostFavorite"
+			@share-post="sharePost"
 			@delete-my-comment="deleteComment"
 			@toggle-following-user="toggleFollowingUser"
 			@toggle-fan-follow="toggleFanFollow"
@@ -1036,6 +1131,7 @@ watch(
 			@toggle-post-like="togglePostLike"
 			@toggle-post-favorite="togglePostFavorite"
 			@toggle-post-follow="togglePostFollow"
+			@share-post="sharePost"
 			@submit-comment="submitComment"
 			@toggle-comment-like="toggleCommentLike"
 			@delete-comment="deleteComment"
@@ -1050,7 +1146,7 @@ watch(
 			@close="closeLoginModal"
 			@update:account="account = $event"
 			@update:password="password = $event"
-			@login="mockLogin"
+			@login="handleLogin"
 			@open-register="openRegisterModal"
 		/>
 

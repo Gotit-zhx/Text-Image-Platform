@@ -37,6 +37,7 @@ const emit = defineEmits<{
 	(e: 'open-comment-detail', postId: number): void
 	(e: 'toggle-post-like', postId: number): void
 	(e: 'toggle-post-favorite', postId: number): void
+	(e: 'share-post', postId: number): void
 	(e: 'delete-my-comment', commentId: number): void
 	(e: 'toggle-following-user', userId: number): void
 	(e: 'toggle-fan-follow', userId: number): void
@@ -208,6 +209,7 @@ const handleChangePassword = () => {
 							@open-comment-detail="emit('open-comment-detail', $event)"
 							@toggle-post-like="emit('toggle-post-like', $event)"
 							@toggle-post-favorite="emit('toggle-post-favorite', $event)"
+							@share-post="emit('share-post', $event)"
 							@open-author-profile="emit('open-author-profile', $event)"
 						/>
 					</template>
@@ -249,6 +251,7 @@ const handleChangePassword = () => {
 							@open-comment-detail="emit('open-comment-detail', $event)"
 							@toggle-post-like="emit('toggle-post-like', $event)"
 							@toggle-post-favorite="emit('toggle-post-favorite', $event)"
+							@share-post="emit('share-post', $event)"
 							@open-author-profile="emit('open-author-profile', $event)"
 						/>
 					</template>

@@ -48,8 +48,10 @@ class Post(models.Model):
 class PostInteraction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_interactions')
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='interactions')
+    is_read = models.BooleanField(default=False)
     is_liked = models.BooleanField(default=False)
     is_favorited = models.BooleanField(default=False)
+    is_shared = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'post')

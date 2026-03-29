@@ -72,7 +72,7 @@ const handleReset = () => {
 			<el-table-column prop="author" label="作者" width="130" />
 			<el-table-column label="状态" width="110">
 				<template #default="scope">
-					<el-tag :type="scope.row.isHidden ? 'warning' : 'success'">{{ scope.row.isHidden ? 'hidden' : 'visible' }}</el-tag>
+					<el-tag :type="scope.row.isHidden ? 'warning' : 'success'">{{ scope.row.isHidden ? '已隐藏' : '可见' }}</el-tag>
 				</template>
 			</el-table-column>
 			<el-table-column label="操作" width="200" fixed="right">

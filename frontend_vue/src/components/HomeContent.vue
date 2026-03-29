@@ -20,6 +20,7 @@ const emit = defineEmits<{
 	(e: 'open-comment-detail', postId: number): void
 	(e: 'toggle-post-like', postId: number): void
 	(e: 'toggle-post-favorite', postId: number): void
+	(e: 'share-post', postId: number): void
 	(e: 'toggle-post-follow', postId: number): void
 	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
 	(e: 'load-more'): void
@@ -67,6 +68,15 @@ watch(loadMoreAnchorRef, (el, oldEl) => {
 <template>
 	<main class="layout">
 		<section class="feed">
+			<div class="feed-hero">
+				<div class="hero-title">社区动态</div>
+				<div class="hero-desc">
+					<template v-if="searchKeyword">当前搜索：{{ searchKeyword }}</template>
+					<template v-else>发现最新内容与高质量讨论</template>
+				</div>
+				<div class="hero-meta">当前展示 {{ posts.length }} 条内容</div>
+			</div>
+
 			<div v-if="isSearching" class="search-tip">搜索中...</div>
 			<div v-else-if="searchError" class="search-tip warning">{{ searchError }}</div>
 			<template v-if="posts.length">
@@ -78,6 +88,7 @@ watch(loadMoreAnchorRef, (el, oldEl) => {
 					@open-comment-detail="emit('open-comment-detail', $event)"
 					@toggle-post-like="emit('toggle-post-like', $event)"
 					@toggle-post-favorite="emit('toggle-post-favorite', $event)"
+					@share-post="emit('share-post', $event)"
 					@toggle-post-follow="emit('toggle-post-follow', $event)"
 					@open-author-profile="emit('open-author-profile', $event)"
 				/>
@@ -112,17 +123,42 @@ watch(loadMoreAnchorRef, (el, oldEl) => {
 	gap: 14px;
 }
 
+.feed-hero {
+	background: linear-gradient(120deg, #f6f9ff 0%, #f1f8ff 100%);
+	border: 1px solid #e4ebff;
+	border-radius: 12px;
+	padding: 14px 16px;
+}
+
+.hero-title {
+	font-size: 17px;
+	font-weight: 700;
+	color: #223055;
+}
+
+.hero-desc {
+	margin-top: 4px;
+	font-size: 13px;
+	color: #5d6c8f;
+}
+
+.hero-meta {
+	margin-top: 8px;
+	font-size: 12px;
+	color: #7a86a2;
+}
+
 .search-empty {
 	background: #fff;
 	border: 1px solid #e9edf3;
 	border-radius: 12px;
-	padding: 36px 20px;
+	padding: 44px 20px;
 	text-align: center;
 	color: #9aa3b6;
 }
 
 .search-tip {
-	background: #eef3ff;
+	background: linear-gradient(120deg, #eef3ff 0%, #f5f8ff 100%);
 	border: 1px solid #d9e4ff;
 	color: #3f5aa8;
 	border-radius: 10px;

@@ -42,23 +42,90 @@ const toolbarOptions = [
 	['clean']
 ]
 
+const readFileAsDataUrl = (file: Blob) =>
+	new Promise<string>((resolve, reject) => {
+		const reader = new FileReader()
+		reader.onload = () => resolve(String(reader.result || ''))
+		reader.onerror = () => reject(new Error('读取图片失败'))
+		reader.readAsDataURL(file)
+	})
+
+const loadImage = (src: string) =>
+	new Promise<HTMLImageElement>((resolve, reject) => {
+		const image = new Image()
+		image.onload = () => resolve(image)
+		image.onerror = () => reject(new Error('解析图片失败'))
+		image.src = src
+	})
+
+const compressImageFile = async (file: File) => {
+	const rawDataUrl = await readFileAsDataUrl(file)
+	if (file.type === 'image/gif') {
+		return rawDataUrl
+	}
+
+	const image = await loadImage(rawDataUrl)
+	const maxSide = 1600
+	const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
+	const targetWidth = Math.max(1, Math.round(image.width * scale))
+	const targetHeight = Math.max(1, Math.round(image.height * scale))
+
+	const canvas = document.createElement('canvas')
+	canvas.width = targetWidth
+	canvas.height = targetHeight
+
+	const ctx = canvas.getContext('2d')
+	if (!ctx) {
+		return rawDataUrl
+	}
+
+	ctx.drawImage(image, 0, 0, targetWidth, targetHeight)
+
+	const blob = await new Promise<Blob | null>((resolve) => {
+		canvas.toBlob((result) => resolve(result), 'image/jpeg', 0.82)
+	})
+
+	if (!blob) {
+		return rawDataUrl
+	}
+
+	if (blob.size >= file.size) {
+		return rawDataUrl
+	}
+
+	return readFileAsDataUrl(blob)
+}
+
 const handleImageUpload = () => {
 	const input = document.createElement('input')
 	input.type = 'file'
 	input.accept = 'image/*'
-	input.onchange = () => {
+	input.onchange = async () => {
 		const file = input.files?.[0]
 		if (!file) return
-		const reader = new FileReader()
-		reader.onload = () => {
+
+		if (file.size > 12 * 1024 * 1024) {
+			submitTip.value = '单张图片不能超过 12MB'
+			return
+		}
+
+		try {
+			const dataUrl = await compressImageFile(file)
+			if (dataUrl.length > 1_800_000) {
+				submitTip.value = '图片过大，请压缩后再上传'
+				return
+			}
+
 			const quill = quillRef.value?.getQuill?.()
 			if (!quill) return
 			const range = quill.getSelection(true)
 			const index = range?.index ?? quill.getLength()
-			quill.insertEmbed(index, 'image', reader.result, 'user')
+			quill.insertEmbed(index, 'image', dataUrl, 'user')
 			quill.setSelection(index + 1)
+			submitTip.value = ''
+		} catch {
+			submitTip.value = '图片处理失败，请重试'
 		}
-		reader.readAsDataURL(file)
 	}
 	input.click()
 }

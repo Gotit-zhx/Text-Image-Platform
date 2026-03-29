@@ -1,5 +1,0 @@
-user_id,article_id,read,like,favorite,share
-5,1,True,False,False,False
-5,2,True,True,False,False
-5,3,True,False,True,False
-5,4,True,True,False,False

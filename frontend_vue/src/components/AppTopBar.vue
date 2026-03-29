@@ -102,11 +102,13 @@ const handleSearchKeywordChange = (value: unknown) => {
 
 <style scoped>
 .topbar {
-	background: linear-gradient(90deg, #1d2140 0%, #101628 100%);
+	background: linear-gradient(100deg, #1b2040 0%, #111729 55%, #0d1324 100%);
 	color: #eef3ff;
 	position: sticky;
 	top: 0;
 	z-index: 10;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	backdrop-filter: blur(8px);
 }
 
 .topbar-inner {
@@ -165,6 +167,13 @@ const handleSearchKeywordChange = (value: unknown) => {
 	opacity: 0.85;
 	color: inherit;
 	text-decoration: none;
+	border-radius: 8px 8px 0 0;
+	transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.08);
 }
 
 .nav-item.active {
@@ -180,7 +189,7 @@ const handleSearchKeywordChange = (value: unknown) => {
 }
 
 .search {
-	width: 300px;
+	width: 340px;
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -200,7 +209,7 @@ const handleSearchKeywordChange = (value: unknown) => {
 :deep(.search-input .el-input__wrapper) {
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.14);
-	box-shadow: none;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 :deep(.search-input .el-input__inner) {
@@ -228,6 +237,11 @@ const handleSearchKeywordChange = (value: unknown) => {
 	font-weight: 700;
 	color: #586178;
 	overflow: hidden;
+	transition: transform 0.2s ease;
+}
+
+.avatar:hover {
+	transform: translateY(-1px);
 }
 
 .avatar img {
@@ -249,7 +263,7 @@ const handleSearchKeywordChange = (value: unknown) => {
 	right: 0;
 	width: 320px;
 	background: #fff;
-	border-radius: 0 0 10px 10px;
+	border-radius: 12px;
 	border: 1px solid #e7eaf0;
 	box-shadow: 0 14px 36px rgba(20, 29, 48, 0.18);
 	overflow: hidden;
@@ -360,6 +374,16 @@ const handleSearchKeywordChange = (value: unknown) => {
 	.nav {
 		overflow-x: auto;
 		white-space: nowrap;
+	}
+}
+
+@media (max-width: 900px) {
+	.nav {
+		display: none;
+	}
+
+	.search {
+		width: 240px;
 	}
 }
 </style>

@@ -8,6 +8,8 @@ import {
 	publishPostApi,
 	saveEditedPostApi,
 	submitCommentApi,
+	trackPostReadApi,
+	trackPostShareApi,
 	toggleAuthorFollowApi,
 	toggleCommentLikeApi,
 	togglePostFavoriteApi,
@@ -218,6 +220,18 @@ export const useCommunityState = ({
 		syncDerivedState()
 	}
 
+	const trackPostRead = async (postId: number) => {
+		const target = posts.value.find((item) => item.id === postId)
+		if (!target) return
+		await trackPostReadApi(postId)
+	}
+
+	const trackPostShare = async (postId: number) => {
+		const target = posts.value.find((item) => item.id === postId)
+		if (!target) return
+		await trackPostShareApi(postId)
+	}
+
 	const submitComment = async (postId: number, content: string) => {
 		const newComment = await submitCommentApi(
 			postId,
@@ -413,6 +427,8 @@ export const useCommunityState = ({
 		togglePostLike,
 		togglePostFavorite,
 		togglePostFollow,
+		trackPostRead,
+		trackPostShare,
 		submitComment,
 		toggleCommentLike,
 		deleteComment,

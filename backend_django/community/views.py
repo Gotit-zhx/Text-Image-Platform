@@ -1,4 +1,5 @@
 import json
+import re
 from functools import wraps
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -19,6 +20,7 @@ from .recommendation import recommended_post_ids_for_user
 from .recsys_pipeline import get_recsys_status_path
 
 ADMIN_SESSION_KEY = 'community_admin_user_id'
+IMG_SRC_PATTERN = re.compile(r'<img[^>]*\bsrc=["\']([^"\']+)["\']', re.IGNORECASE)
 
 
 def _get_admin_session_user(request: HttpRequest):
@@ -145,6 +147,40 @@ def _ensure_profile(user: User):
     Profile.objects.get_or_create(user=user)
 
 
+def _extract_images_from_html(content_html: str, limit: int = 3):
+    if not content_html:
+        return []
+
+    images = []
+    for match in IMG_SRC_PATTERN.finditer(content_html):
+        src = (match.group(1) or '').strip()
+        if not src:
+            continue
+        images.append(src)
+        if len(images) >= limit:
+            break
+    return images
+
+
+def _normalize_post_images(raw_images, content_html: str):
+    if not isinstance(raw_images, list):
+        raw_images = []
+
+    images: list[str] = []
+    for item in raw_images:
+        if isinstance(item, str):
+            value = item.strip()
+            if value:
+                images.append(value)
+        if len(images) >= 3:
+            break
+
+    if images:
+        return images
+
+    return _extract_images_from_html(content_html, limit=3)
+
+
 def _user_to_login_payload(user: User):
     profile = getattr(user, 'profile', None)
     followers = Follow.objects.filter(followee=user).count()
@@ -180,6 +216,10 @@ def _serialize_post(post: Post, viewer: User | None):
             is_favorited = interaction.is_favorited
         is_following_author = Follow.objects.filter(follower=viewer, followee=post.author).exists()
 
+    images = post.images if isinstance(post.images, list) else []
+    if not images:
+        images = _extract_images_from_html(post.content_html, limit=3)
+
     author_profile = getattr(post.author, 'profile', None)
     return {
         'id': post.id,
@@ -192,7 +232,7 @@ def _serialize_post(post: Post, viewer: User | None):
         'authorAvatarUrl': author_profile.avatar_url if author_profile else '',
         'time': _format_mmdd(post.created_at),
         'tags': post.tags,
-        'images': post.images,
+        'images': images,
         'comments': post.comments_count,
         'likes': post.likes_count,
         'moderationStatus': post.moderation_status,
@@ -724,13 +764,15 @@ def posts_create(request: HttpRequest):
     if not title:
         return api_error(request, 'title 不能为空', status=400)
 
+    normalized_images = _normalize_post_images(data.get('images'), content_html)
+
     post = Post.objects.create(
         author=request.user,
         title=title,
         summary=data.get('summary') or '',
         content_html=content_html,
         tags=data.get('tags') or [],
-        images=data.get('images') or [],
+        images=normalized_images,
     )
     return api_success(request, _serialize_post(post, request.user), status=201)
 
@@ -747,11 +789,13 @@ def posts_update(request: HttpRequest, post_id: int):
     if post.author_id != request.user.id:
         return api_error(request, '仅作者可编辑', status=403)
 
+    next_content_html = data.get('contentHtml') or post.content_html
+
     post.title = (data.get('title') or post.title).strip()
     post.summary = data.get('summary') or post.summary
-    post.content_html = data.get('contentHtml') or post.content_html
+    post.content_html = next_content_html
     post.tags = data.get('tags') or post.tags
-    post.images = data.get('images') or post.images
+    post.images = _normalize_post_images(data.get('images'), next_content_html)
     post.save()
 
     return api_success(
@@ -796,8 +840,9 @@ def post_like_toggle(request: HttpRequest, post_id: int):
         return api_error(request, '帖子不存在', status=404)
 
     interaction, _ = PostInteraction.objects.get_or_create(user=request.user, post=post)
+    interaction.is_read = True
     interaction.is_liked = will_like
-    interaction.save(update_fields=['is_liked'])
+    interaction.save(update_fields=['is_read', 'is_liked'])
 
     post.likes_count = PostInteraction.objects.filter(post=post, is_liked=True).count()
     post.save(update_fields=['likes_count'])
@@ -815,10 +860,43 @@ def post_favorite_toggle(request: HttpRequest, post_id: int):
         return api_error(request, '帖子不存在', status=404)
 
     interaction, _ = PostInteraction.objects.get_or_create(user=request.user, post=post)
+    interaction.is_read = True
     interaction.is_favorited = will_favorite
-    interaction.save(update_fields=['is_favorited'])
+    interaction.save(update_fields=['is_read', 'is_favorited'])
 
     return api_success(request, {'postId': post.id, 'isFavorited': will_favorite})
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@api_login_required
+def post_read_track(request: HttpRequest, post_id: int):
+    post = Post.objects.filter(id=post_id).first()
+    if not post:
+        return api_error(request, '帖子不存在', status=404)
+
+    interaction, _ = PostInteraction.objects.get_or_create(user=request.user, post=post)
+    if not interaction.is_read:
+        interaction.is_read = True
+        interaction.save(update_fields=['is_read'])
+
+    return api_success(request, {'postId': post.id, 'isRead': True})
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@api_login_required
+def post_share_track(request: HttpRequest, post_id: int):
+    post = Post.objects.filter(id=post_id).first()
+    if not post:
+        return api_error(request, '帖子不存在', status=404)
+
+    interaction, _ = PostInteraction.objects.get_or_create(user=request.user, post=post)
+    interaction.is_read = True
+    interaction.is_shared = True
+    interaction.save(update_fields=['is_read', 'is_shared'])
+
+    return api_success(request, {'postId': post.id, 'isShared': True})
 
 
 @csrf_exempt
@@ -944,7 +1022,7 @@ def admin_posts(request: HttpRequest):
     if status:
         queryset = queryset.filter(moderation_status=status)
     if keyword:
-        queryset = queryset.filter(title__icontains=keyword)
+        queryset = queryset.filter(Q(title__icontains=keyword) | Q(author__username__icontains=keyword))
 
     page_items, pagination = _paginate(request, queryset)
     items = [
@@ -1008,6 +1086,8 @@ def admin_post_review(request: HttpRequest, post_id: int):
     }
     if action not in action_to_status:
         return api_error(request, '无效审核动作', status=400)
+    if action in {'reject', 'offline'} and not reason:
+        return api_error(request, '驳回/下架时必须填写原因', status=400)
 
     post.moderation_status = action_to_status[action]
     post.review_reason = reason
@@ -1028,6 +1108,66 @@ def admin_post_review(request: HttpRequest, post_id: int):
     )
 
 
+@csrf_exempt
+@require_http_methods(['POST'])
+@api_admin_required
+def admin_post_batch_review(request: HttpRequest):
+    data = _json_body(request)
+    post_ids = data.get('postIds') or []
+    action = (data.get('action') or '').strip()
+    reason = (data.get('reason') or '').strip()
+
+    if not isinstance(post_ids, list) or not post_ids:
+        return api_error(request, 'postIds 不能为空', status=400)
+
+    normalized_ids: list[int] = []
+    for value in post_ids:
+        try:
+            normalized = int(value)
+        except (TypeError, ValueError):
+            return api_error(request, 'postIds 必须为数字数组', status=400)
+        if normalized > 0:
+            normalized_ids.append(normalized)
+
+    if not normalized_ids:
+        return api_error(request, 'postIds 不能为空', status=400)
+
+    action_to_status = {
+        'approve': Post.MODERATION_APPROVED,
+        'reject': Post.MODERATION_REJECTED,
+        'offline': Post.MODERATION_OFFLINE,
+        'pending': Post.MODERATION_PENDING,
+    }
+    if action not in action_to_status:
+        return api_error(request, '无效审核动作', status=400)
+    if action in {'reject', 'offline'} and not reason:
+        return api_error(request, '驳回/下架时必须填写原因', status=400)
+
+    now = timezone.now()
+    target_status = action_to_status[action]
+    updated = Post.objects.filter(id__in=normalized_ids).update(
+        moderation_status=target_status,
+        review_reason=reason,
+        reviewed_by=request.admin_user,
+        reviewed_at=now,
+    )
+
+    for post_id in normalized_ids:
+        _write_audit_log(request, 'post.review', 'post', post_id, {'action': action, 'reason': reason, 'batch': True})
+
+    return api_success(
+        request,
+        {
+            'updated': updated,
+            'status': target_status,
+            'postIds': normalized_ids,
+            'reviewReason': reason,
+            'reviewedBy': request.admin_user.username,
+            'reviewedAt': localtime(now).isoformat(),
+        },
+    )
+
+
 @require_GET
 @api_admin_required
 def admin_comments(request: HttpRequest):
@@ -1035,7 +1175,7 @@ def admin_comments(request: HttpRequest):
     visibility = (request.GET.get('visibility') or '').strip()
     queryset = Comment.objects.select_related('author', 'post').all().order_by('-created_at')
     if keyword:
-        queryset = queryset.filter(content__icontains=keyword)
+        queryset = queryset.filter(Q(content__icontains=keyword) | Q(author__username__icontains=keyword))
     if visibility == 'hidden':
         queryset = queryset.filter(is_hidden=True)
     elif visibility == 'visible':
@@ -1105,7 +1245,7 @@ def admin_users(request: HttpRequest):
     keyword = (request.GET.get('keyword') or '').strip()
     queryset = User.objects.all().order_by('-id')
     if keyword:
-        queryset = queryset.filter(username__icontains=keyword)
+        queryset = queryset.filter(Q(username__icontains=keyword) | Q(email__icontains=keyword))
 
     page_items, pagination = _paginate(request, queryset)
     items = [
@@ -1129,20 +1269,31 @@ def admin_user_roles(request: HttpRequest, user_id: int):
     if not request.admin_user.is_superuser:
         return api_error(request, '仅超级管理员可修改角色', status=403)
     data = _json_body(request)
-    role_names = data.get('roles') or []
-    if not isinstance(role_names, list):
-        return api_error(request, 'roles 参数格式错误', status=400)
+
+    if 'isAdmin' in data and not isinstance(data.get('isAdmin'), bool):
+        return api_error(request, 'isAdmin 参数格式错误', status=400)
+
+    role_names = data.get('roles') if isinstance(data.get('roles'), list) else None
 
     user = User.objects.filter(id=user_id).first()
     if not user:
         return api_error(request, '用户不存在', status=404)
 
-    _ensure_admin_groups()
-    groups = list(Group.objects.filter(name__in=role_names))
-    user.groups.set(groups)
-    user.is_staff = bool(groups)
+    if role_names is not None:
+        _ensure_admin_groups()
+        groups = list(Group.objects.filter(name__in=role_names))
+        user.groups.set(groups)
+        user.is_staff = bool(groups)
+        detail = {'roles': role_names}
+    else:
+        is_admin = bool(data.get('isAdmin'))
+        user.is_staff = is_admin
+        if not is_admin:
+            user.groups.clear()
+        detail = {'isAdmin': is_admin}
+
     user.save(update_fields=['is_staff'])
-    _write_audit_log(request, 'user.roles.update', 'user', user_id, {'roles': role_names})
+    _write_audit_log(request, 'user.roles.update', 'user', user_id, detail)
     return api_success(request, {'id': user.id, 'roles': _user_roles(user), 'isAdmin': user.is_staff})
 
 

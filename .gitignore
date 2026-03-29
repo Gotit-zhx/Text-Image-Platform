@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+*.sqlite3
+.env
+venv/
+.venv/
+*.log
+
+# Django
+media/
+staticfiles/
+*.log
+backend_django/recsys_train.log
+backend_django/recsys_train_status.json
+
+# Node
+node_modules/
+dist/
+*.local
+frontend_vue/.env
+
+# IDE
+.vscode/
+.DS_Store
+
+# Logs
+.run_logs/
+
+# Recommendation cache
+recommend_system/cache/
+
+# Env files
+*.env

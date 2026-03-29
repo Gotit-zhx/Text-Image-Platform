@@ -470,6 +470,28 @@ export const togglePostFavoriteApi = async (postId: number, willFavorite: boolea
 	})
 }
 
+export const trackPostReadApi = async (postId: number) => {
+	if (USE_MOCK_API) {
+		return { postId, isRead: true }
+	}
+
+	return apiRequest<{ postId: number; isRead: boolean }>(`/community/posts/${postId}/read`, {
+		method: 'POST',
+		body: JSON.stringify({})
+	})
+}
+
+export const trackPostShareApi = async (postId: number) => {
+	if (USE_MOCK_API) {
+		return { postId, isShared: true }
+	}
+
+	return apiRequest<{ postId: number; isShared: boolean }>(`/community/posts/${postId}/share`, {
+		method: 'POST',
+		body: JSON.stringify({})
+	})
+}
+
 export const toggleAuthorFollowApi = async (authorId: number, willFollow: boolean) => {
 	if (USE_MOCK_API) {
 		return { authorId, isFollowing: willFollow }

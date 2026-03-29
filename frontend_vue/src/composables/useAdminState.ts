@@ -1,23 +1,26 @@
 import { ref } from 'vue'
 import {
-	adminLoginApi,
-	adminLogoutApi,
-	adminMeApi,
-	deleteAdminCommentApi,
-	getAdminAuditLogsApi,
-	getAdminCommentsApi,
-	getAdminOverviewApi,
-	getAdminPostsApi,
-	getAdminUsersApi,
-	hideAdminCommentApi,
-	restoreAdminCommentApi,
-	reviewAdminPostApi,
-	updateAdminUserRolesApi,
-	type AdminAuditItem,
-	type AdminCommentItem,
-	type AdminPostItem,
-	type AdminUserItem,
-	type Pagination
+adminLoginApi,
+adminLogoutApi,
+adminMeApi,
+deleteAdminCommentApi,
+getAdminAuditLogsApi,
+getAdminPostDetailApi,
+getAdminCommentsApi,
+getAdminOverviewApi,
+getAdminPostsApi,
+getAdminUsersApi,
+hideAdminCommentApi,
+restoreAdminCommentApi,
+reviewAdminPostApi,
+reviewAdminPostBatchApi,
+updateAdminUserAdminApi,
+type AdminPostDetail,
+type AdminAuditItem,
+type AdminCommentItem,
+type AdminPostItem,
+type AdminUserItem,
+type Pagination
 } from '../api/admin'
 import type { LoginUser } from '../types'
 import { clearSessionUser, readSessionUser, writeSessionUser } from '../auth/session'
@@ -25,172 +28,191 @@ import { clearSessionUser, readSessionUser, writeSessionUser } from '../auth/ses
 const defaultPagination: Pagination = { total: 0, page: 1, pageSize: 10 }
 
 export const useAdminState = () => {
-	const adminUser = ref<LoginUser | null>(readSessionUser('admin'))
-	const loading = ref(false)
-	const error = ref('')
+const adminUser = ref<LoginUser | null>(readSessionUser('admin'))
+const loading = ref(false)
+const error = ref('')
 
-	const overview = ref({
-		postPendingCount: 0,
-		commentHiddenCount: 0,
-		todayActiveUsers: 0,
-		auditEvents24h: 0
-	})
+const overview = ref({
+postPendingCount: 0,
+commentHiddenCount: 0,
+todayActiveUsers: 0,
+auditEvents24h: 0
+})
 
-	const posts = ref<AdminPostItem[]>([])
-	const postsPagination = ref<Pagination>({ ...defaultPagination })
+const posts = ref<AdminPostItem[]>([])
+const currentPostDetail = ref<AdminPostDetail | null>(null)
+const postsPagination = ref<Pagination>({ ...defaultPagination })
 
-	const comments = ref<AdminCommentItem[]>([])
-	const commentsPagination = ref<Pagination>({ ...defaultPagination })
+const comments = ref<AdminCommentItem[]>([])
+const commentsPagination = ref<Pagination>({ ...defaultPagination })
 
-	const users = ref<AdminUserItem[]>([])
-	const usersPagination = ref<Pagination>({ ...defaultPagination })
+const users = ref<AdminUserItem[]>([])
+const usersPagination = ref<Pagination>({ ...defaultPagination })
 
-	const logs = ref<AdminAuditItem[]>([])
-	const logsPagination = ref<Pagination>({ ...defaultPagination })
+const logs = ref<AdminAuditItem[]>([])
+const logsPagination = ref<Pagination>({ ...defaultPagination })
 
-	const adminLogin = async (account: string, password: string) => {
-		let loggedUser: LoginUser | null = null
-		await withLoading(async () => {
-			const user = await adminLoginApi(account, password)
-			adminUser.value = user
-			writeSessionUser(user, 'admin')
-			loggedUser = user
-		})
-		return loggedUser
-	}
+const withLoading = async (runner: () => Promise<void>) => {
+loading.value = true
+error.value = ''
+try {
+await runner()
+} catch (e) {
+error.value = e instanceof Error ? e.message : '请求失败'
+} finally {
+loading.value = false
+}
+}
 
-	const loadAdminSession = async () => {
-		try {
-			const user = await adminMeApi()
-			adminUser.value = user
-			writeSessionUser(user, 'admin')
-			return user
-		} catch {
-			adminUser.value = null
-			clearSessionUser('admin')
-			return null
-		}
-	}
+const adminLogin = async (account: string, password: string) => {
+let loggedUser: LoginUser | null = null
+await withLoading(async () => {
+const user = await adminLoginApi(account, password)
+adminUser.value = user
+writeSessionUser(user, 'admin')
+loggedUser = user
+})
+return loggedUser
+}
 
-	const adminLogout = async () => {
-		try {
-			await adminLogoutApi()
-		} finally {
-			adminUser.value = null
-			clearSessionUser('admin')
-		}
-	}
+const loadAdminSession = async () => {
+try {
+const user = await adminMeApi()
+adminUser.value = user
+writeSessionUser(user, 'admin')
+return user
+} catch {
+adminUser.value = null
+clearSessionUser('admin')
+return null
+}
+}
 
-	const withLoading = async (runner: () => Promise<void>) => {
-		loading.value = true
-		error.value = ''
-		try {
-			await runner()
-		} catch (e) {
-			error.value = e instanceof Error ? e.message : '请求失败'
-		} finally {
-			loading.value = false
-		}
-	}
+const adminLogout = async () => {
+try {
+await adminLogoutApi()
+} finally {
+adminUser.value = null
+clearSessionUser('admin')
+}
+}
 
-	const loadOverview = async () => {
-		await withLoading(async () => {
-			overview.value = await getAdminOverviewApi()
-		})
-	}
+const loadOverview = async () => {
+await withLoading(async () => {
+overview.value = await getAdminOverviewApi()
+})
+}
 
-	const loadPosts = async (params: { page?: number; pageSize?: number; status?: string; keyword?: string } = {}) => {
-		await withLoading(async () => {
-			const result = await getAdminPostsApi(params)
-			posts.value = result.items
-			postsPagination.value = result.pagination
-		})
-	}
+const loadPosts = async (params: { page?: number; pageSize?: number; status?: string; keyword?: string } = {}) => {
+await withLoading(async () => {
+const result = await getAdminPostsApi(params)
+posts.value = result.items
+postsPagination.value = result.pagination
+})
+}
 
-	const reviewPost = async (postId: number, action: string, reason = '') => {
-		await withLoading(async () => {
-			await reviewAdminPostApi(postId, action, reason)
-		})
-	}
+const reviewPost = async (postId: number, action: string, reason = '') => {
+await withLoading(async () => {
+await reviewAdminPostApi(postId, action, reason)
+})
+}
 
-	const loadComments = async (params: {
-		page?: number
-		pageSize?: number
-		visibility?: string
-		keyword?: string
-	} = {}) => {
-		await withLoading(async () => {
-			const result = await getAdminCommentsApi(params)
-			comments.value = result.items
-			commentsPagination.value = result.pagination
-		})
-	}
+const reviewPostsBatch = async (postIds: number[], action: string, reason = '') => {
+await withLoading(async () => {
+await reviewAdminPostBatchApi(postIds, action, reason)
+})
+}
 
-	const hideComment = async (id: number) => {
-		await withLoading(async () => {
-			await hideAdminCommentApi(id)
-		})
-	}
+const loadPostDetail = async (postId: number) => {
+let detail: AdminPostDetail | null = null
+await withLoading(async () => {
+detail = await getAdminPostDetailApi(postId)
+currentPostDetail.value = detail
+})
+return detail
+}
 
-	const restoreComment = async (id: number) => {
-		await withLoading(async () => {
-			await restoreAdminCommentApi(id)
-		})
-	}
+const loadComments = async (params: {
+page?: number
+pageSize?: number
+visibility?: string
+keyword?: string
+} = {}) => {
+await withLoading(async () => {
+const result = await getAdminCommentsApi(params)
+comments.value = result.items
+commentsPagination.value = result.pagination
+})
+}
 
-	const deleteComment = async (id: number) => {
-		await withLoading(async () => {
-			await deleteAdminCommentApi(id)
-		})
-	}
+const hideComment = async (id: number) => {
+await withLoading(async () => {
+await hideAdminCommentApi(id)
+})
+}
 
-	const loadUsers = async (params: { page?: number; pageSize?: number; keyword?: string } = {}) => {
-		await withLoading(async () => {
-			const result = await getAdminUsersApi(params)
-			users.value = result.items
-			usersPagination.value = result.pagination
-		})
-	}
+const restoreComment = async (id: number) => {
+await withLoading(async () => {
+await restoreAdminCommentApi(id)
+})
+}
 
-	const updateUserRoles = async (id: number, roles: string[]) => {
-		await withLoading(async () => {
-			await updateAdminUserRolesApi(id, roles)
-		})
-	}
+const deleteComment = async (id: number) => {
+await withLoading(async () => {
+await deleteAdminCommentApi(id)
+})
+}
 
-	const loadLogs = async (params: { page?: number; pageSize?: number; action?: string; targetType?: string } = {}) => {
-		await withLoading(async () => {
-			const result = await getAdminAuditLogsApi(params)
-			logs.value = result.items
-			logsPagination.value = result.pagination
-		})
-	}
+const loadUsers = async (params: { page?: number; pageSize?: number; keyword?: string } = {}) => {
+await withLoading(async () => {
+const result = await getAdminUsersApi(params)
+users.value = result.items
+usersPagination.value = result.pagination
+})
+}
 
-	return {
-		adminUser,
-		loading,
-		error,
-		overview,
-		posts,
-		postsPagination,
-		comments,
-		commentsPagination,
-		users,
-		usersPagination,
-		logs,
-		logsPagination,
-		adminLogin,
-		loadAdminSession,
-		adminLogout,
-		loadOverview,
-		loadPosts,
-		reviewPost,
-		loadComments,
-		hideComment,
-		restoreComment,
-		deleteComment,
-		loadUsers,
-		updateUserRoles,
-		loadLogs
-	}
+const updateUserAdmin = async (id: number, isAdmin: boolean) => {
+await withLoading(async () => {
+await updateAdminUserAdminApi(id, isAdmin)
+})
+}
+
+const loadLogs = async (params: { page?: number; pageSize?: number; action?: string; targetType?: string } = {}) => {
+await withLoading(async () => {
+const result = await getAdminAuditLogsApi(params)
+logs.value = result.items
+logsPagination.value = result.pagination
+})
+}
+
+return {
+adminUser,
+loading,
+error,
+overview,
+posts,
+currentPostDetail,
+postsPagination,
+comments,
+commentsPagination,
+users,
+usersPagination,
+logs,
+logsPagination,
+adminLogin,
+loadAdminSession,
+adminLogout,
+loadOverview,
+loadPosts,
+reviewPost,
+reviewPostsBatch,
+loadPostDetail,
+loadComments,
+hideComment,
+restoreComment,
+deleteComment,
+loadUsers,
+updateUserAdmin,
+loadLogs
+}
 }
