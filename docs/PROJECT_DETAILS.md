@@ -145,31 +145,3 @@ bash run_project.sh --install
 cd backend_django
 python manage.py seed_demo_data
 ```
-
-## 7. 当前仓库的公开化处理
-
-为了让项目适合上传到 GitHub，当前仓库已经完成以下整理：
-
-- 移除了本机绝对路径依赖
-- `.env` 改为外部配置
-- 启动命令改为第三方可执行方式
-- 忽略日志、数据库、缓存和模型产物
-- 补充 GitHub README 与使用文档
-- 增加 GitHub Actions 自动校验
-
-## 8. 当前确认结果
-
-截至目前，已经确认：
-
-- 后端测试通过
-- 前端构建通过
-- 文档覆盖克隆、运行、开发、上传 GitHub 全流程
-- Git 跟踪内容中没有新增不该公开的运行产物
-
-## 9. 后续可继续增强的方向
-
-- 增加 Docker / docker-compose 部署
-- 将 SQLite 切换为 PostgreSQL
-- 为 README 替换为真实截图
-- 增加前端 E2E 测试
-- 增加线上部署说明

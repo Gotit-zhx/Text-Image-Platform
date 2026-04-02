@@ -83,18 +83,6 @@ python manage.py train_recsys --trials 10 --val-ratio 0.1 --min-rows 1
 
 然后重新访问推荐页面。
 
-### 4. 仓库里不应该提交哪些文件
-
-以下文件已经加入忽略规则，不应提交：
-
-- `.env`
-- `.run_logs/`
-- `backend_django/db.sqlite3`
-- `backend_django/recsys_train_status.json`
-- `recommend_system/cache/`
-- `node_modules/`
-- `dist/`
-- `__pycache__/`
 
 ## CI 说明
 
