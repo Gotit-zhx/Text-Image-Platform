@@ -55,7 +55,7 @@ tip/
 ## 第三方快速开始
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Gotit-zhx/Text-Image-Platform.git
 cd tip
 cp .env.example .env
 bash run_project.sh --install
