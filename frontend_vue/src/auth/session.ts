@@ -1,40 +1,31 @@
 import type { LoginUser } from '../types'
-
+import { apiRequest } from '../api/client'
 type SessionScope = 'community' | 'admin'
-
-const SESSION_USER_KEYS: Record<SessionScope, string> = {
-	community: 'frontend_vue_login_user',
-	admin: 'frontend_vue_admin_user'
-}
-
-const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage
-
-export const readSessionUser = (scope: SessionScope = 'community'): LoginUser | null => {
-	if (!canUseStorage()) return null
-	const raw = window.localStorage.getItem(SESSION_USER_KEYS[scope])
-	if (!raw) return null
-
-	try {
-		return JSON.parse(raw) as LoginUser
-	} catch {
-		window.localStorage.removeItem(SESSION_USER_KEYS[scope])
-		return null
-	}
-}
-
+const users: Record<SessionScope, LoginUser | null> = { community: null, admin: null }
+const loading: Partial<Record<SessionScope, Promise<LoginUser | null>>> = {}
+export const readSessionUser = (scope: SessionScope = 'community') => users[scope]
 export const writeSessionUser = (user: LoginUser, scope: SessionScope = 'community') => {
-	if (!canUseStorage()) return
-	window.localStorage.setItem(SESSION_USER_KEYS[scope], JSON.stringify(user))
+  users[scope] = user
 }
-
 export const clearSessionUser = (scope: SessionScope = 'community') => {
-	if (!canUseStorage()) return
-	window.localStorage.removeItem(SESSION_USER_KEYS[scope])
+  users[scope] = null
+  localStorage.removeItem(scope === 'admin' ? 'frontend_vue_admin_user' : 'frontend_vue_login_user')
 }
-
-export const isAuthenticated = () => Boolean(readSessionUser('community'))
-
-export const isAdminAuthenticated = () => {
-	const user = readSessionUser('admin')
-	return Boolean(user && user.isAdmin)
+export const ensureSession = (scope: SessionScope = 'community'): Promise<LoginUser | null> => {
+  if (!loading[scope])
+    loading[scope] = apiRequest<LoginUser>(scope === 'admin' ? '/admin/auth/me' : '/users/me')
+      .then((user) => {
+        users[scope] = user
+        return user
+      })
+      .catch(() => {
+        clearSessionUser(scope)
+        return null
+      })
+      .finally(() => {
+        delete loading[scope]
+      })
+  return loading[scope]!
 }
+export const isAuthenticated = () => Boolean(users.community)
+export const isAdminAuthenticated = () => Boolean(users.admin?.isAdmin)

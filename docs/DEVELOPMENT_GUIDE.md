@@ -35,6 +35,8 @@ bash run_project.sh --install
 
 ## 推荐系统训练
 
+本地展示内容可通过 `python manage.py seed_demo_data --reset` 重建。该命令生成 9 位创作者和 12 篇图文帖子，图片素材及许可说明见 [`demo-media-sources.md`](demo-media-sources.md)。重置仅针对本地演示账号与内容。
+
 ### 执行训练
 
 ```bash

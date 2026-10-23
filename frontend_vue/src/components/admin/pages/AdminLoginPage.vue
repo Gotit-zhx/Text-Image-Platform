@@ -10,8 +10,8 @@ defineProps<{
 	error: string
 }>()
 
-const account = ref('admin@example.com')
-const password = ref('123456')
+const account = ref('')
+const password = ref('')
 const canSubmit = computed(() => account.value.trim() && password.value.trim())
 
 const handleSubmit = () => {
@@ -41,7 +41,7 @@ const handleSubmit = () => {
 
 <style scoped>
 .admin-login-wrap { min-height: 100vh; display: grid; place-items: center; background: #f4f6fb; }
-.admin-login-card { width: 420px; border-radius: 12px; }
+.admin-login-card { width: min(420px,94vw); border-radius: 12px; }
 .login-btn { width: 100%; margin-top: 8px; }
 .error { margin-bottom: 8px; }
 </style>

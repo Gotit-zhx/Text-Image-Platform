@@ -8,14 +8,7 @@ export const formatCount = (count: number): string => {
 	return `${count}`
 }
 
-export const resolvePostImageStyle = (image: string) => {
-	if (/^(linear-gradient|radial-gradient|conic-gradient)\(/.test(image)) {
-		return { background: image }
-	}
-
-	return {
-		backgroundImage: `url(${image})`,
-		backgroundSize: 'cover',
-		backgroundPosition: 'center'
-	}
+export const formatPostTime = (value: string): string => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('zh-CN', {month:'numeric',day:'numeric'})
 }

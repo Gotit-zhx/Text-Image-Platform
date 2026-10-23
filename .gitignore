@@ -35,3 +35,15 @@ recommend_system/cache/
 
 # Env files
 *.env
+
+# Local development mail contains single-use account links
+.dev-mail/
+backend_django/.dev-mail/
+
+# Internal planning, implementation, and acceptance notes stay local
+docs/AI_DEVELOPMENT_PROMPTS.md
+docs/BUSINESS_UI_TODO.md
+docs/ACCEPTANCE_SCENARIOS.md
+docs/HUMAN_ACCEPTANCE.md
+docs/IMPLEMENTATION_REPORT.md
+docs/PLATFORM_READINESS_AUDIT.md

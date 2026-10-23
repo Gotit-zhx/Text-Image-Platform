@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import {
 adminLoginApi,
 adminLogoutApi,
@@ -35,7 +35,6 @@ const error = ref('')
 const overview = ref({
 postPendingCount: 0,
 commentHiddenCount: 0,
-todayActiveUsers: 0,
 auditEvents24h: 0
 })
 
@@ -52,15 +51,53 @@ const usersPagination = ref<Pagination>({ ...defaultPagination })
 const logs = ref<AdminAuditItem[]>([])
 const logsPagination = ref<Pagination>({ ...defaultPagination })
 
+let pendingCount = 0, mutationPending = false, sequence = 0, activeRead = 0, disposed = false
+const latestRead: Record<string, number> = {}
+const begin = () => { pendingCount++; loading.value = true }
+const end = () => { pendingCount--; loading.value = pendingCount > 0 }
+const resetAccountData = () => {
+activeRead = ++sequence
+for (const key of Object.keys(latestRead)) latestRead[key] = activeRead
+posts.value = []; comments.value = []; users.value = []; logs.value = []
+currentPostDetail.value = null
+postsPagination.value = { ...defaultPagination }
+commentsPagination.value = { ...defaultPagination }
+usersPagination.value = { ...defaultPagination }
+logsPagination.value = { ...defaultPagination }
+overview.value = { postPendingCount: 0, commentHiddenCount: 0, auditEvents24h: 0 }
+error.value = ''
+}
+const readLatest = async <T>(key: string, fetcher: () => Promise<T>, apply: (value: T) => void) => {
+const current = ++sequence
+latestRead[key] = current
+activeRead = current
+begin()
+error.value = ''
+try {
+const result = await fetcher()
+if (!disposed && latestRead[key] === current) apply(result)
+} catch (e) {
+if (!disposed && activeRead === current) {
+error.value = e instanceof Error ? e.message : '请求失败'
+throw e
+}
+} finally { end() }
+}
+onBeforeUnmount(() => { disposed = true })
+
 const withLoading = async (runner: () => Promise<void>) => {
-loading.value = true
+if(mutationPending)throw new Error('已有操作正在处理，请稍后重试')
+mutationPending = true
+begin()
 error.value = ''
 try {
 await runner()
 } catch (e) {
 error.value = e instanceof Error ? e.message : '请求失败'
+throw e
 } finally {
-loading.value = false
+mutationPending = false
+end()
 }
 }
 
@@ -68,6 +105,7 @@ const adminLogin = async (account: string, password: string) => {
 let loggedUser: LoginUser | null = null
 await withLoading(async () => {
 const user = await adminLoginApi(account, password)
+resetAccountData()
 adminUser.value = user
 writeSessionUser(user, 'admin')
 loggedUser = user
@@ -78,10 +116,12 @@ return loggedUser
 const loadAdminSession = async () => {
 try {
 const user = await adminMeApi()
+if (adminUser.value?.id !== user.id) resetAccountData()
 adminUser.value = user
 writeSessionUser(user, 'admin')
 return user
 } catch {
+resetAccountData()
 adminUser.value = null
 clearSessionUser('admin')
 return null
@@ -89,23 +129,18 @@ return null
 }
 
 const adminLogout = async () => {
-try {
 await adminLogoutApi()
-} finally {
+resetAccountData()
 adminUser.value = null
 clearSessionUser('admin')
 }
-}
 
 const loadOverview = async () => {
-await withLoading(async () => {
-overview.value = await getAdminOverviewApi()
-})
+await readLatest('overview', getAdminOverviewApi, value => { overview.value = value })
 }
 
 const loadPosts = async (params: { page?: number; pageSize?: number; status?: string; keyword?: string } = {}) => {
-await withLoading(async () => {
-const result = await getAdminPostsApi(params)
+await readLatest('posts', () => getAdminPostsApi(params), result => {
 posts.value = result.items
 postsPagination.value = result.pagination
 })
@@ -125,9 +160,10 @@ await reviewAdminPostBatchApi(postIds, action, reason)
 
 const loadPostDetail = async (postId: number) => {
 let detail: AdminPostDetail | null = null
-await withLoading(async () => {
-detail = await getAdminPostDetailApi(postId)
-currentPostDetail.value = detail
+currentPostDetail.value = null
+await readLatest('post-detail', () => getAdminPostDetailApi(postId), result => {
+detail = result
+currentPostDetail.value = result
 })
 return detail
 }
@@ -138,8 +174,7 @@ pageSize?: number
 visibility?: string
 keyword?: string
 } = {}) => {
-await withLoading(async () => {
-const result = await getAdminCommentsApi(params)
+await readLatest('comments', () => getAdminCommentsApi(params), result => {
 comments.value = result.items
 commentsPagination.value = result.pagination
 })
@@ -164,8 +199,7 @@ await deleteAdminCommentApi(id)
 }
 
 const loadUsers = async (params: { page?: number; pageSize?: number; keyword?: string } = {}) => {
-await withLoading(async () => {
-const result = await getAdminUsersApi(params)
+await readLatest('users', () => getAdminUsersApi(params), result => {
 users.value = result.items
 usersPagination.value = result.pagination
 })
@@ -178,8 +212,7 @@ await updateAdminUserAdminApi(id, isAdmin)
 }
 
 const loadLogs = async (params: { page?: number; pageSize?: number; action?: string; targetType?: string } = {}) => {
-await withLoading(async () => {
-const result = await getAdminAuditLogsApi(params)
+await readLatest('logs', () => getAdminAuditLogsApi(params), result => {
 logs.value = result.items
 logsPagination.value = result.pagination
 })

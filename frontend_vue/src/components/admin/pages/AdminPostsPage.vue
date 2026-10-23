@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import DOMPurify from 'dompurify'
+import AdminPagination from '../AdminPagination.vue'
 import { ElMessage } from 'element-plus'
 import type { AdminPostDetail, AdminPostItem } from '../../../api/admin'
 import type { Pagination } from '../../../api/admin'
@@ -8,10 +9,13 @@ import type { Pagination } from '../../../api/admin'
 const props = defineProps<{
 	items: AdminPostItem[]
 	loading: boolean
+  canWrite?: boolean
 	pagination: Pagination
 	status: string
 	keyword: string
 	currentDetail: AdminPostDetail | null
+  reviewPost: (payload: {id:number;action:'approve'|'reject'|'offline';reason:string}) => Promise<void>
+  reviewBatch: (payload: {ids:number[];action:'approve'|'reject'|'offline';reason:string}) => Promise<void>
 }>()
 
 const emit = defineEmits(['refresh', 'review', 'batch-review', 'open-detail', 'query-change'])
@@ -24,6 +28,7 @@ const reasonText = ref('')
 const pendingAction = ref<'approve' | 'reject' | 'offline' | null>(null)
 const pendingIds = ref<number[]>([])
 const detailDrawerVisible = ref(false)
+const reviewPending = ref(false), reviewError = ref('')
 
 watch(
 	() => props.status,
@@ -56,26 +61,34 @@ const actionTextMap: Record<'approve' | 'reject' | 'offline', string> = {
 	offline: '下架'
 }
 
-const submitReview = () => {
-	if (!pendingAction.value || !pendingIds.value.length) return
+const submitReview = async () => {
+	if (reviewPending.value || !pendingAction.value || !pendingIds.value.length) return
 	const action = pendingAction.value
 	if ((action === 'reject' || action === 'offline') && !reasonText.value.trim()) {
 		ElMessage.warning('请填写原因')
 		return
 	}
-	if (pendingIds.value.length === 1) {
-		emit('review', { id: pendingIds.value[0], action, reason: reasonText.value.trim() })
-	} else {
-		emit('batch-review', { ids: [...pendingIds.value], action, reason: reasonText.value.trim() })
-	}
-	reasonDialogVisible.value = false
-	reasonText.value = ''
-	pendingAction.value = null
-	pendingIds.value = []
+  reviewPending.value = true
+  reviewError.value = ''
+  try {
+    if (pendingIds.value.length === 1) {
+      await props.reviewPost({ id: pendingIds.value[0]!, action, reason: reasonText.value.trim() })
+    } else {
+      await props.reviewBatch({ ids: [...pendingIds.value], action, reason: reasonText.value.trim() })
+    }
+    reasonDialogVisible.value = false
+    reasonText.value = ''
+    pendingAction.value = null
+    pendingIds.value = []
+  } catch (e) {
+    reviewError.value = e instanceof Error ? e.message : '审核失败，处理原因已保留'
+    if (!reasonDialogVisible.value) ElMessage.error(reviewError.value)
+  } finally { reviewPending.value = false }
 }
 
 const requestReview = (ids: number[], action: 'approve' | 'reject' | 'offline') => {
-	if (!ids.length) return
+	if (!props.canWrite || !ids.length || reviewPending.value) return
+  reviewError.value = ''
 	pendingIds.value = ids
 	pendingAction.value = action
 	if (action === 'approve') {
@@ -157,22 +170,22 @@ const sanitizedDetailHtml = computed(() =>
 		<div class="head">
 			<div class="title">帖子审核</div>
 			<div class="filters">
-				<el-select v-model="localStatus" clearable placeholder="状态" style="width: 140px">
+				<el-select v-model="localStatus" aria-label="帖子审核状态" clearable placeholder="状态" style="width: 140px">
 					<el-option label="待审核" value="pending" />
 					<el-option label="已通过" value="approved" />
 					<el-option label="已驳回" value="rejected" />
 					<el-option label="已下架" value="offline" />
 				</el-select>
-				<el-input v-model="localKeyword" clearable placeholder="标题/作者关键词" style="width: 220px" @keyup.enter="handleSearch" />
+				<el-input v-model="localKeyword" aria-label="帖子标题或作者关键词" clearable placeholder="标题/作者关键词" style="width: 220px" @keyup.enter="handleSearch" />
 				<el-button type="primary" @click="handleSearch">查询</el-button>
 				<el-button @click="handleReset">重置</el-button>
-				<el-button type="success" :disabled="!selectedIds.length" @click="requestReview(selectedIds, 'approve')">
+				<el-button v-if="canWrite" type="success" :disabled="!selectedIds.length" @click="requestReview(selectedIds, 'approve')">
 					批量通过
 				</el-button>
-				<el-button type="warning" :disabled="!selectedIds.length" @click="requestReview(selectedIds, 'reject')">
+				<el-button v-if="canWrite" type="warning" :disabled="!selectedIds.length" @click="requestReview(selectedIds, 'reject')">
 					批量驳回
 				</el-button>
-				<el-button type="danger" :disabled="!selectedIds.length" @click="requestReview(selectedIds, 'offline')">
+				<el-button v-if="canWrite" type="danger" :disabled="!selectedIds.length" @click="requestReview(selectedIds, 'offline')">
 					批量下架
 				</el-button>
 				<el-button @click="emit('refresh')">刷新</el-button>
@@ -180,11 +193,12 @@ const sanitizedDetailHtml = computed(() =>
 		</div>
 		<el-table
 			:data="props.items"
-			:loading="loading"
+			v-loading="loading"
+			:aria-busy="loading"
 			border
 			@selection-change="handleSelectionChange"
 		>
-			<el-table-column type="selection" width="46" />
+			<el-table-column v-if="canWrite" type="selection" width="46" />
 			<el-table-column prop="id" label="ID" width="80" />
 			<el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
 			<el-table-column prop="author" label="作者" width="140" />
@@ -200,18 +214,17 @@ const sanitizedDetailHtml = computed(() =>
 				<template #default="scope">
 					<el-space>
 						<el-button size="small" @click="openDetail(scope.row.id)">详情</el-button>
-						<el-button size="small" type="success" @click="requestReview([scope.row.id], 'approve')">通过</el-button>
-						<el-button size="small" type="warning" @click="requestReview([scope.row.id], 'reject')">驳回</el-button>
-						<el-button size="small" type="danger" @click="requestReview([scope.row.id], 'offline')">下架</el-button>
+						<el-button v-if="canWrite" size="small" type="success" @click="requestReview([scope.row.id], 'approve')">通过</el-button>
+						<el-button v-if="canWrite" size="small" type="warning" @click="requestReview([scope.row.id], 'reject')">驳回</el-button>
+						<el-button v-if="canWrite" size="small" type="danger" @click="requestReview([scope.row.id], 'offline')">下架</el-button>
 					</el-space>
 				</template>
 			</el-table-column>
 		</el-table>
 
 		<div class="pager">
-			<el-pagination
+			<AdminPagination
 				background
-				layout="total, sizes, prev, pager, next, jumper"
 				:total="props.pagination.total"
 				:current-page="props.pagination.page"
 				:page-size="props.pagination.pageSize"
@@ -221,18 +234,21 @@ const sanitizedDetailHtml = computed(() =>
 			/>
 		</div>
 
-		<el-dialog v-model="reasonDialogVisible" :title="`请填写${pendingAction ? actionTextMap[pendingAction] : ''}原因`" width="520px">
+		<el-dialog v-model="reasonDialogVisible" :close-on-click-modal="!reviewPending" :close-on-press-escape="!reviewPending" :show-close="!reviewPending" :title="`请填写${pendingAction ? actionTextMap[pendingAction] : ''}原因`" width="520px">
 			<el-input
 				v-model="reasonText"
+				aria-label="审核处理原因"
+        :readonly="reviewPending"
 				type="textarea"
 				:rows="4"
 				maxlength="200"
 				show-word-limit
 				placeholder="请填写处理原因（最多 200 字）"
 			/>
+      <p v-if="reviewError" role="alert">{{ reviewError }}</p>
 			<template #footer>
-				<el-button @click="reasonDialogVisible = false">取消</el-button>
-				<el-button type="primary" @click="submitReview">确认</el-button>
+				<el-button :disabled="reviewPending" @click="reasonDialogVisible = false">取消</el-button>
+				<el-button v-if="canWrite" type="primary" :loading="reviewPending" @click="submitReview">确认</el-button>
 			</template>
 		</el-dialog>
 

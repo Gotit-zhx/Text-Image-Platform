@@ -1,116 +1,193 @@
-from django.contrib.auth.models import User
-from django.core.management.base import BaseCommand
+"""Create a polished, local-only demonstration community.
 
-from community.models import Comment, Follow, Post, PostInteraction, Profile
+The image files are checked-in public-domain/CC0 downloads under ``demo_assets``.
+This command only removes accounts whose usernames are in the demo namespace;
+it never deletes staff or superuser accounts.
+"""
+
+from pathlib import Path
+import re
+
+from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
+from django.core.management.base import BaseCommand
+from PIL import Image
+
+from community.models import Comment, Follow, Media, Post, PostInteraction, Profile
+
+
+DEMO_USERNAMES = {
+    'demo_muyu', 'demo_shanlu', 'demo_kafei', 'demo_shuye', 'demo_chengshi',
+    'demo_yuanfang', 'demo_suishou', 'demo_guangying', 'demo_qingchen',
+}
+LEGACY_DEMO_PATTERN = re.compile(r'^(?:demo_\d+|用户\d+)$')
 
 
 class Command(BaseCommand):
-    help = '初始化联调演示数据（用户/帖子/互动/评论）'
+    help = '重建本地演示内容：清理旧演示账号，导入公开图片并生成社区数据'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--reset', action='store_true',
+            help='清理旧的本地演示账号和内容后再生成；不会删除 staff/superuser。',
+        )
 
     def handle(self, *args, **options):
+        if options['reset']:
+            self._reset_demo_data()
+
+        asset_dir = Path(__file__).resolve().parents[4] / 'demo_assets'
+        image_names = [
+            'mongolia-landscape.jpg', 'coffee-cup.jpg', 'street-craftsman.jpg',
+            'hiking-trip.jpg', 'market-food.jpg', 'elephant-clock.jpg',
+        ]
+        missing = [name for name in image_names if not (asset_dir / name).is_file()]
+        if missing:
+            self.stderr.write(self.style.ERROR(
+                '缺少 demo_assets 图片：' + ', '.join(missing) +
+                '。请先获取 docs/demo-media-sources.md 中列出的公开素材。'
+            ))
+            return
+
+        people = [
+            ('demo_muyu', '木鱼', '记录城市和自然之间的慢节奏。'),
+            ('demo_shanlu', '山路观察员', '周末去山里，平时在地图上做功课。'),
+            ('demo_kafei', '咖啡实验室', '把每一杯咖啡的变量写下来。'),
+            ('demo_shuye', '书页之间', '读书、做笔记，也分享一些安静时刻。'),
+            ('demo_chengshi', '小城散步', '街角、菜市场和下班后的风。'),
+            ('demo_yuanfang', '远方来信', '把旅途中看到的细节带回来。'),
+            ('demo_suishou', '随手记', '不追求完整，只记录真实发生过的事。'),
+            ('demo_guangying', '光影练习生', '练习观察光如何改变一张照片。'),
+            ('demo_qingchen', '清晨六点', '早起的人，先看到一天的颜色。'),
+        ]
+
         users = []
-        for idx in range(1, 14):
-            username = f'用户{idx}'
-            email = f'demo_user_{idx}@example.com'
-            user, _ = User.objects.get_or_create(username=username, defaults={'email': email})
-            user.set_password('123456')
-            user.email = email
-            user.save(update_fields=['password', 'email'])
-            Profile.objects.get_or_create(user=user)
+        for username, nickname, signature in people:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={'email': f'{username}@example.com'},
+            )
+            if created:
+                user.set_password('DemoGarden!2026')
+                user.save(update_fields=['password'])
+            Profile.objects.update_or_create(
+                user=user,
+                defaults={'nickname': nickname, 'signature': signature, 'email_verified': True},
+            )
             users.append(user)
 
-        topics = [
-            {
-                'tags': ['摄影', '夜景', '街拍'],
-                'titles': ['雨后夜拍机位清单', '地铁口人像抓拍技巧', '城市反光面构图复盘'],
-                'summaries': ['整理了 6 个稳定出片机位，附参数建议。', '晚高峰 20 分钟抓拍，保留环境光层次。', '利用店铺玻璃和积水做双重反射，画面更有纵深。'],
-            },
-            {
-                'tags': ['手账', '模板', '效率'],
-                'titles': ['一周任务拆解模板', '番茄钟学习计划实录', '月度复盘页面设计'],
-                'summaries': ['把任务拆成 30 分钟颗粒度，执行更轻松。', '记录 14 天专注时长，找到最稳工作节奏。', '用一页复盘目标、结果与阻碍，下月迭代更快。'],
-            },
-            {
-                'tags': ['徒步', '旅行', '装备'],
-                'titles': ['周末轻徒步路线推荐', '山脊线天气突变应对', '露营补给清单实测'],
-                'summaries': ['全程 12 公里，适合新手，补给点明确。', '强风和降温场景下的分层穿着方案。', '实测 2 天 1 夜食物和水量，避免背负过重。'],
-            },
-            {
-                'tags': ['咖啡', '拉花', '日常'],
-                'titles': ['家庭手冲风味对比', '奶泡稳定性练习记录', '晨间咖啡角布置'],
-                'summaries': ['同一豆子三种水温萃取，酸甜平衡差异明显。', '蒸汽量和打发时长的组合对口感影响很大。', '桌面动线优化后，早晨出杯效率提升一倍。'],
-            },
-            {
-                'tags': ['编程', '前端', '后端'],
-                'titles': ['接口契约对齐实践', '前端列表渲染优化', '后端查询性能排查'],
-                'summaries': ['统一错误码和字段命名，联调成本明显下降。', '通过分段渲染降低首屏与滚动卡顿。', '定位慢 SQL 后将接口响应压缩到 200ms 内。'],
-            },
-            {
-                'tags': ['读书', '笔记', '成长'],
-                'titles': ['本周阅读摘录', '知识卡片整理方法', '长期学习计划复盘'],
-                'summaries': ['三本书各提炼 5 个可执行观点。', '用主题-问题-行动三段式沉淀阅读笔记。', '对比季度目标与实际投入，及时调整策略。'],
-            },
-        ]
+        assets = self._load_assets(users, asset_dir, image_names)
+        posts = self._create_posts(users, assets)
+        self._create_relationships(users)
+        self._create_interactions(users, posts)
+        self._create_comments(users, posts)
+        self._refresh_counts(posts)
 
-        comment_templates = [
-            '第 2 段方法很实用，我按你的步骤试了一次，效果很稳定。',
-            '这个清单太及时了，省去了我自己摸索的大量时间。',
-            '图文结构清晰，尤其是参数和注意事项部分，收藏了。',
-            '我补充了一个小技巧，结合你的方案会更顺手。',
-            '已经照着实践，结果比预期好很多，感谢分享。',
-        ]
+        self.stdout.write(self.style.SUCCESS(
+            f'演示内容已更新：{len(users)} 位创作者、{len(posts)} 篇帖子、'
+            f'{len(assets)} 张公开图片。演示账号密码仍为 DemoGarden!2026。'
+        ))
 
+    def _reset_demo_data(self):
+        demo_users = User.objects.filter(username__in=DEMO_USERNAMES)
+        legacy_users = User.objects.filter(username__regex=r'^(demo_[0-9]+|用户[0-9]+)$')
+        users = (demo_users | legacy_users).distinct()
+        Post.objects.filter(author__in=users).delete()
+        users.delete()
+        Media.objects.filter(owner__username__in=DEMO_USERNAMES).delete()
+        self.stdout.write('已清理旧演示账号、帖子、评论和互动；保留 staff/superuser。')
+
+    def _load_assets(self, users, asset_dir, image_names):
+        assets = []
+        for index, filename in enumerate(image_names):
+            owner = users[index % len(users)]
+            payload = (asset_dir / filename).read_bytes()
+            with Image.open(asset_dir / filename) as image:
+                width, height = image.size
+                image_format = image.format or 'JPEG'
+            media, _ = Media.objects.get_or_create(
+                owner=owner,
+                file=f'uploads/demo/{filename}',
+                defaults={'width': width, 'height': height, 'size': len(payload), 'format': image_format},
+            )
+            if not media.thumbnail or not media.thumbnail.storage.exists(media.thumbnail.name):
+                media.thumbnail.save(f'{Path(filename).stem}-thumb.jpg', ContentFile(payload), save=False)
+            if media.width != width or media.height != height or media.size != len(payload):
+                media.width, media.height, media.size, media.format = width, height, len(payload), image_format
+            if not media.file or not media.file.storage.exists(media.file.name):
+                media.file.save(f'demo/{filename}', ContentFile(payload), save=False)
+            media.save()
+            assets.append(media)
+        return assets
+
+    def _create_posts(self, users, assets):
+        entries = [
+            ('沿着草原的风走一段', '旅行', '在地图上看了很久的路，真正走进去以后，最先记住的却是风的方向。', [0]),
+            ('一杯咖啡的三个变量', '咖啡', '同一支豆子，水温、研磨度和等待时间稍微变化，杯子里的层次就完全不同。', [1]),
+            ('街角手艺人的下午', '城市', '在市场拐角遇到一位修理旧物的师傅。手艺让时间变慢，也让一件东西重新获得价值。', [2]),
+            ('给周末留一条山路', '徒步', '不赶日落，也不设置必须抵达的终点。带上水和一件薄外套，走到想停下的地方。', [3]),
+            ('菜市场的颜色练习', '日常', '红色的番茄、绿色的香草和一块旧木板，生活本身就是很好的构图课。', [4]),
+            ('一本旧书的边角', '阅读', '书页有被翻过的痕迹，才像真正进入过某个人的生活。今天读到一句话，想留在这里。', [5]),
+            ('不带计划的城市散步', '街拍', '从一条不熟悉的街开始，走过三家小店和一座没有名字的小桥。', [2, 4]),
+            ('清晨六点的光', '摄影', '同一个窗台，在清晨和傍晚有两种完全不同的情绪。光线会替我们记录时间。', [0, 1]),
+            ('把旅行收进一张清单', '攻略', '轻装出发，留下余地。真正有用的清单，应该让人更自由，而不是更紧张。', [3, 5]),
+            ('今晚做一顿简单的饭', '生活', '不复杂的食材也能让一天有一个温柔的收尾。', [4]),
+            ('读完一本书以后', '笔记', '合上书并不代表结束，真正有用的部分常常发生在第二天的行动里。', [5]),
+            ('把喜欢的风景分享出去', '随手记', '有些照片不需要解释，看到它的时候，心里会先亮一下。', [0]),
+        ]
         posts = []
-        for u_idx, user in enumerate(users, start=1):
-            post_count = 2 + ((u_idx * 3) % 5)
-            for p_idx in range(post_count):
-                topic = topics[(u_idx + p_idx) % len(topics)]
-                title_seed = topic['titles'][(u_idx + p_idx * 2) % len(topic['titles'])]
-                summary_seed = topic['summaries'][(u_idx + p_idx) % len(topic['summaries'])]
-                title = f'{title_seed}｜{user.username}'
-                post, _ = Post.objects.get_or_create(
-                    title=title,
-                    defaults={
-                        'author': user,
-                        'summary': summary_seed,
-                        'content_html': (
-                            f'<p>{summary_seed}</p>'
-                            f'<p>{user.username} 在这篇内容里记录了执行步骤、踩坑点和可复用结论，方便大家直接上手。</p>'
-                        ),
-                        'tags': topic['tags'],
-                        'images': ['linear-gradient(135deg, #8ec5fc, #e0c3fc)'] if p_idx % 3 == 0 else [],
-                    },
-                )
-                posts.append(post)
+        for index, (title, tag, summary, image_indexes) in enumerate(entries):
+            author = users[index % len(users)]
+            post, _ = Post.objects.update_or_create(
+                author=author,
+                title=title,
+                defaults={
+                    'summary': summary,
+                    'content_html': f'<p>{summary}</p><p>这是百草园本地演示内容，欢迎在评论区分享你的经验和看法。</p>',
+                    'tags': [tag, '生活记录'],
+                    'moderation_status': Post.MODERATION_APPROVED,
+                    'deleted_at': None,
+                },
+            )
+            selected = [assets[i] for i in image_indexes]
+            post.media_assets.set(selected)
+            post.images = [f'/media/{asset.pk}/image' for asset in selected]
+            post.save(update_fields=['images', 'updated_at', 'moderation_status', 'deleted_at'])
+            posts.append(post)
+        return posts
 
-        for idx, user in enumerate(users):
-            for offset in (1, 2, 3):
-                followee = users[(idx + offset) % len(users)]
-                if followee.id != user.id:
-                    Follow.objects.get_or_create(follower=user, followee=followee)
+    def _create_relationships(self, users):
+        for index, user in enumerate(users):
+            for step in (1, 2, 3):
+                Follow.objects.get_or_create(follower=user, followee=users[(index + step) % len(users)])
 
-        for u_idx, user in enumerate(users):
-            for offset in range(6):
-                post = posts[(u_idx * 5 + offset) % len(posts)]
+    def _create_interactions(self, users, posts):
+        for index, user in enumerate(users):
+            for post in posts[index % len(posts)::3]:
                 interaction, _ = PostInteraction.objects.get_or_create(user=user, post=post)
-                interaction.is_liked = offset % 2 == 0
-                interaction.is_favorited = offset % 3 == 0
+                interaction.is_liked = (post.id + index) % 3 != 0
+                interaction.is_favorited = (post.id + index) % 4 == 0
                 interaction.save(update_fields=['is_liked', 'is_favorited'])
 
-        for u_idx, user in enumerate(users):
-            for offset in range(3):
-                post = posts[(u_idx * 7 + offset * 2) % len(posts)]
-                if post.author_id == user.id:
-                    post = posts[(u_idx * 7 + offset * 2 + 1) % len(posts)]
+    def _create_comments(self, users, posts):
+        texts = [
+            '这段记录很有画面感，收藏下来周末试试。',
+            '同感，最近也在练习放慢一点。',
+            '谢谢分享，尤其喜欢你写的细节。',
+            '这个方法我还没试过，准备照着做一次。',
+            '照片和文字的节奏很舒服。',
+        ]
+        for index, post in enumerate(posts):
+            for offset in range(2):
+                author = users[(index + offset + 1) % len(users)]
                 Comment.objects.get_or_create(
                     post=post,
-                    author=user,
-                    content=comment_templates[(u_idx + offset) % len(comment_templates)],
+                    author=author,
+                    content=texts[(index + offset) % len(texts)],
                 )
 
+    def _refresh_counts(self, posts):
         for post in posts:
             post.likes_count = PostInteraction.objects.filter(post=post, is_liked=True).count()
-            post.comments_count = Comment.objects.filter(post=post).count()
+            post.comments_count = Comment.objects.filter(post=post, deleted_at__isnull=True, is_hidden=False).count()
             post.save(update_fields=['likes_count', 'comments_count'])
-
-        self.stdout.write(self.style.SUCCESS('社区内容初始化完成：13 个用户，每用户 2~6 篇文章，且每用户均有评论。默认密码：123456'))

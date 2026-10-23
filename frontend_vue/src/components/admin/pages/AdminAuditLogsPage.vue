@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import AdminPagination from '../AdminPagination.vue'
 import type { AdminAuditItem } from '../../../api/admin'
 import type { Pagination } from '../../../api/admin'
 
@@ -84,10 +85,10 @@ const formatTargetType = (targetType: string) => targetTypeLabelMap[targetType] 
 		<div class="head">
 			<div class="title">审计日志</div>
 			<div class="filters">
-				<el-select v-model="localAction" clearable placeholder="动作类型" style="width: 220px">
+				<el-select v-model="localAction" aria-label="审计动作类型" clearable placeholder="动作类型" style="width: 220px">
 					<el-option v-for="item in actionOptions" :key="item.value" :label="item.label" :value="item.value" />
 				</el-select>
-				<el-select v-model="localTargetType" clearable placeholder="对象类型" style="width: 220px">
+				<el-select v-model="localTargetType" aria-label="审计对象类型" clearable placeholder="对象类型" style="width: 220px">
 					<el-option v-for="item in targetTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
 				</el-select>
 				<el-button type="primary" @click="handleSearch">查询</el-button>
@@ -95,7 +96,7 @@ const formatTargetType = (targetType: string) => targetTypeLabelMap[targetType] 
 				<el-button @click="emit('refresh')">刷新</el-button>
 			</div>
 		</div>
-		<el-table :data="items" :loading="loading" border>
+		<el-table v-loading="loading" :data="items" :aria-busy="loading" border>
 			<el-table-column prop="id" label="ID" width="80" />
 			<el-table-column prop="actorName" label="操作者" width="140">
 				<template #default="scope">{{ scope.row.actorName || '-' }}</template>
@@ -110,9 +111,8 @@ const formatTargetType = (targetType: string) => targetTypeLabelMap[targetType] 
 			<el-table-column prop="createdAt" label="时间" min-width="180" />
 		</el-table>
 		<div class="pager">
-			<el-pagination
+			<AdminPagination
 				background
-				layout="total, sizes, prev, pager, next, jumper"
 				:total="props.pagination.total"
 				:current-page="props.pagination.page"
 				:page-size="props.pagination.pageSize"

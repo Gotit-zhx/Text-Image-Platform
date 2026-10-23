@@ -47,9 +47,12 @@ export type AdminCommentItem = {
 export type AdminUserItem = {
 	id: number
 	name: string
-	email: string
+	email?: string
 	isActive: boolean
 	isAdmin: boolean
+	roles?: string[]
+	banned?: boolean
+	mutedUntil?: string
 }
 
 export type AdminAuditItem = {
@@ -81,7 +84,6 @@ export const getAdminOverviewApi = () =>
 	apiRequest<{
 		postPendingCount: number
 		commentHiddenCount: number
-		todayActiveUsers: number
 		auditEvents24h: number
 	}>('/admin/dashboard/overview')
 

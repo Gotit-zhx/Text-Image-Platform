@@ -143,5 +143,7 @@ bash run_project.sh --install
 
 ```bash
 cd backend_django
-python manage.py seed_demo_data
+python manage.py seed_demo_data --reset
 ```
+
+该命令会重建本地展示用的 9 位创作者、12 篇图文帖子和互动关系，并导入 `demo_assets/` 中的公开 CC0 图片；不会删除真实用户、staff/superuser 或隔离验收数据。演示账号密码为 `DemoGarden!2026`，仅适用于本地展示。

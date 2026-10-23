@@ -1,6 +1,9 @@
 <script setup lang="ts">
 defineProps<{
 	visible: boolean
+  pending?: boolean
+  error?: string
+  message?: string
 	email: string
 	password: string
 	confirmPassword: string
@@ -34,7 +37,7 @@ const handleConfirmPasswordChange = (value: unknown) => {
 <template>
 	<el-dialog
 		:model-value="visible"
-		width="420px"
+		width="min(420px, 94vw)"
 		:show-close="false"
 		append-to-body
 		class="auth-dialog"
@@ -70,9 +73,11 @@ const handleConfirmPasswordChange = (value: unknown) => {
 			<el-alert v-if="email && !isEmailValid" class="login-tip" type="error" :closable="false" title="请输入正确的邮箱格式" />
 			<el-alert v-else-if="confirmPassword && !isPasswordMatch" class="login-tip" type="error" :closable="false" title="两次输入的密码不一致" />
 
-			<el-button class="login-btn" type="primary" :disabled="!canRegister" @click="emit('register')">注册</el-button>
+			<el-button class="login-btn" type="primary" :disabled="!canRegister || pending" :loading="pending" @click="emit('register')">注册</el-button>
 
-			<div class="login-footer single-link">
+			<p v-if="error" role="alert">{{ error }}</p>
+      <p v-if="message" role="status">{{ message }}</p>
+      <div class="login-footer single-link">
 				<el-button link type="primary" @click="emit('back-login')">返回登录</el-button>
 			</div>
 		</div>

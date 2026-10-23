@@ -33,3 +33,23 @@ class DevCorsMiddleware:
             response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
 
         return response
+
+
+class CommunityWritePolicyMiddleware:
+    """Reject malformed JSON and enforce account restrictions on existing sessions."""
+    def __init__(self,get_response):
+        self.get_response=get_response
+    def __call__(self,request):
+        from community.http import api_error
+        if request.path.startswith('/api/') and request.method not in {'GET','HEAD','OPTIONS'}:
+            if request.content_type=='application/json' and request.body:
+                import json
+                try:
+                    payload=json.loads(request.body)
+                    if not isinstance(payload,dict):return api_error(request,'请求必须是JSON对象')
+                except (ValueError,UnicodeDecodeError):return api_error(request,'请求JSON格式错误')
+            if request.user.is_authenticated and request.path.startswith(('/api/community/','/api/media','/api/reports','/api/appeals')):
+                from community.social import write_denial
+                denial=write_denial(request)
+                if denial:return denial
+        return self.get_response(request)

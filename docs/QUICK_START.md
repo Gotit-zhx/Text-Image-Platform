@@ -59,13 +59,14 @@ npm run dev
 
 ```bash
 cd backend_django
-python manage.py seed_demo_data
+python manage.py seed_demo_data --reset
 ```
 
 说明：
 
-- 会生成 13 个示例用户
-- 默认密码为 `123456`
+- 会生成 9 位创作者、12 篇图文帖子，以及评论、点赞、收藏和关注关系
+- 演示图片来自 `demo_assets/` 中的公开 CC0 素材，来源与许可见 [`docs/demo-media-sources.md`](demo-media-sources.md)
+- `--reset` 只清理旧的本地演示账号和内容，保留 staff/superuser；演示账号密码为 `DemoGarden!2026`，不要在生产环境使用
 
 ## 6. 创建后台管理员
 

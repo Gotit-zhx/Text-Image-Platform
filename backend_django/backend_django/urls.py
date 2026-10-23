@@ -27,3 +27,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('community.urls')),
 ]
+
+from community.media import media_file
+urlpatterns += [path('media/<int:media_id>/<str:variant>', media_file)]

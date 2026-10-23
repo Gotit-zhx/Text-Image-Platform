@@ -27,7 +27,8 @@ class CommunityApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['code'], 0)
-        self.assertGreaterEqual(len(data['data']['posts']), 1)
+        self.assertEqual(data['data']['posts'], [])
+        self.assertEqual(User.objects.count(), 0)
 
     def test_create_post_requires_login(self):
         response = self._post_json('/api/community/posts', {'title': 'x', 'contentHtml': '<p>x</p>'})
@@ -36,9 +37,13 @@ class CommunityApiTests(TestCase):
     def test_register_and_create_post_success(self):
         register = self._post_json(
             '/api/auth/register',
-            {'email': 'api_tester@example.com', 'password': '123456'},
+            {'email': 'api_tester@example.com', 'password': 'GardenField!2026'},
         )
         self.assertEqual(register.status_code, 201)
+        user = User.objects.get(email='api_tester@example.com')
+        user.profile.email_verified = True
+        user.profile.save()
+        self._post_json('/api/auth/login', {'account': user.email, 'password': 'GardenField!2026'})
 
         create_post = self._post_json(
             '/api/community/posts',
@@ -87,7 +92,7 @@ class CommunityApiTests(TestCase):
 
         del_comment_resp = self.client.delete(f'/api/community/comments/{comment_id}')
         self.assertEqual(del_comment_resp.status_code, 200)
-        self.assertFalse(Comment.objects.filter(id=comment_id).exists())
+        self.assertTrue(Comment.objects.filter(id=comment_id,deleted_at__isnull=False,content='').exists())
 
     def test_follow_self_blocked(self):
         user = User.objects.create_user(username='self_u', email='self@example.com', password='123456')
@@ -190,15 +195,16 @@ class CommunityApiTests(TestCase):
             '/api/users/me/profile',
             {
                 'name': 'after_name',
-                'avatarUrl': 'https://example.com/avatar.png',
+                'avatarUrl': '',
                 'gender': 'female',
             },
         )
         self.assertEqual(response.status_code, 200)
 
         user.refresh_from_db()
-        self.assertEqual(user.username, 'after_name')
-        self.assertEqual(user.profile.avatar_url, 'https://example.com/avatar.png')
+        self.assertEqual(user.username, 'before_name')
+        self.assertEqual(user.profile.nickname, 'after_name')
+        self.assertEqual(user.profile.avatar_url, '')
         self.assertEqual(user.profile.gender, 'female')
 
     def test_bootstrap_contains_my_post_status_and_notifications(self):
@@ -250,4 +256,4 @@ class CommunityApiTests(TestCase):
 
         self.assertEqual(data['fans'], 1)
         self.assertEqual(data['follows'], 0)
-        self.assertEqual(data['totalLikes'], 18)
+        self.assertEqual(data['totalLikes'], 0)  # Denormalized demo counts are not real interactions.

@@ -1,314 +1,317 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ChatDotRound, Pointer, Share, Star } from '@element-plus/icons-vue'
+import { computed, ref, watch } from 'vue'
 import type { Post } from '../../types'
-import { formatCount, resolvePostImageStyle } from '../../utils/postUi'
-
-const props = defineProps<{
-	post: Post
-}>()
-
-const displayImages = computed(() => {
-	const images = props.post.images || []
-	if (images.length === 0) return []
-	if (images.length > 3) return []
-	return images
-})
-
+import AppIcon from '../ui/AppIcon.vue'
+import UserAvatar from '../ui/UserAvatar.vue'
+import { formatCount, formatPostTime } from '../../utils/postUi'
+const props = defineProps<{ post: Post; timeline?: boolean }>()
+const failed = ref(false)
+const images = computed(() =>
+  props.post.images.filter((image) => /^(https?:|data:image\/|\/media\/)/.test(image))
+)
+watch(
+  () => props.post.images,
+  () => {
+    failed.value = false
+  }
+)
 const emit = defineEmits<{
-	(e: 'open-detail', postId: number): void
-	(e: 'open-comment-detail', postId: number): void
-	(e: 'toggle-post-like', postId: number): void
-	(e: 'toggle-post-favorite', postId: number): void
-	(e: 'share-post', postId: number): void
-	(e: 'toggle-post-follow', postId: number): void
-	(e: 'open-author-profile', payload: { userId?: number; userName: string; avatarText: string }): void
+  'open-detail': [id: number]
+  'open-comment-detail': [id: number]
+  'toggle-post-like': [id: number]
+  'toggle-post-favorite': [id: number]
+  'share-post': [id: number]
+  'toggle-post-follow': [id: number]
+  'open-author-profile': [payload: { userId?: number; userName: string; avatarText: string }]
 }>()
-
+const author = () =>
+  emit('open-author-profile', {
+    userId: props.post.authorId,
+    userName: props.post.author,
+    avatarText: props.post.author.slice(0, 1)
+  })
 </script>
-
 <template>
-	<article class="card" @click="emit('open-detail', post.id)">
-		<div class="card-head">
-			<div class="author-wrap">
-				<div
-					class="author-avatar"
-					@click.stop="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.authorAvatarText || post.author.slice(0, 1) })"
-				>
-					<img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="avatar" />
-					<span v-else>{{ post.authorAvatarText || post.author.slice(0, 1) }}</span>
-				</div>
-				<div class="author-meta">
-					<div class="meta-line">
-						<span
-							class="author"
-							@click.stop="emit('open-author-profile', { userId: post.authorId, userName: post.author, avatarText: post.authorAvatarText || post.author.slice(0, 1) })"
-						>
-							{{ post.author }}
-						</span>
-						<span class="time">{{ post.time }}</span>
-						<span v-if="post.moderationStatus && post.moderationStatus !== 'approved'" class="status-tag">
-							{{ post.moderationStatus }}
-						</span>
-					</div>
-					<h3 class="title">{{ post.title }}</h3>
-				</div>
-			</div>
-
-			<button class="follow" :class="{ followed: post.isFollowingAuthor }" @click.stop="emit('toggle-post-follow', post.id)">
-				{{ post.isFollowingAuthor ? '已关注' : '关注' }}
-			</button>
-		</div>
-
-		<p class="summary">{{ post.summary }}</p>
-
-		<div v-if="displayImages.length" class="images" :class="{ single: displayImages.length === 1 }">
-			<div
-				v-for="(image, idx) in displayImages"
-				:key="`${post.id}-${idx}`"
-				class="img"
-				:style="resolvePostImageStyle(image)"
-			>
-				<span class="img-watermark">图文</span>
-			</div>
-		</div>
-
-		<div v-if="post.tags.length" class="tags">
-			<span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
-		</div>
-
-		<div class="stats">
-			<button class="stats-btn" @click.stop="emit('open-comment-detail', post.id)">
-				<el-icon><ChatDotRound /></el-icon>
-				{{ post.comments }}
-			</button>
-			<button class="stats-btn" :class="{ liked: post.isLiked }" @click.stop="emit('toggle-post-like', post.id)">
-				<el-icon><Pointer /></el-icon>
-				{{ formatCount(post.likes) }}
-			</button>
-			<button
-				class="stats-btn"
-				:class="{ favorited: post.isFavorited }"
-				@click.stop="emit('toggle-post-favorite', post.id)"
-			>
-				<el-icon><Star /></el-icon>
-				{{ post.isFavorited ? '已收藏' : '收藏' }}
-			</button>
-			<button class="stats-btn" @click.stop="emit('share-post', post.id)">
-				<el-icon><Share /></el-icon>
-				分享
-			</button>
-		</div>
-	</article>
+  <article class="post-card" :class="{ timeline, textual: !images.length }">
+    <div v-if="timeline" class="timeline-author">
+      <button class="author" @click="author">
+        <UserAvatar :src="post.authorAvatarUrl" :name="post.author" /><span>{{
+          post.author
+        }}</span></button
+      ><time :datetime="post.createdAt || post.time" :title="post.createdAt || post.time">{{
+        formatPostTime(post.createdAt || post.time)
+      }}</time
+      ><button class="text-button" @click="emit('toggle-post-follow', post.id)">
+        {{ post.isFollowingAuthor ? '已关注' : '关注' }}
+      </button>
+    </div>
+    <a
+      :href="`/detail/${post.id}`"
+      class="content-link"
+      @click.prevent="emit('open-detail', post.id)"
+    >
+      <div v-if="images.length" class="cover" :class="{ gallery: timeline && images.length > 1 }">
+        <template v-if="!failed"
+          ><img
+            v-for="(src, i) in images.slice(0, timeline ? 3 : 1)"
+            :key="src"
+            :src="src"
+            :alt="`${post.title} 图片 ${i + 1}`"
+            loading="lazy"
+            width="440"
+            height="550"
+            @error="failed = true" /></template
+        ><span v-else class="image-error">图片加载失败 · 打开正文</span
+        ><span v-if="images.length > 1 && !timeline" class="image-count"
+          >{{ images.length }} 图</span
+        >
+      </div>
+      <div class="card-copy">
+        <span v-if="!images.length" class="text-note">文字札记</span>
+        <h2>{{ post.title }}</h2>
+        <p v-if="timeline || !images.length" class="summary">{{ post.summary }}</p>
+      </div>
+    </a>
+    <footer>
+      <button v-if="!timeline" class="author" @click="author">
+        <UserAvatar :src="post.authorAvatarUrl" :name="post.author" :size="24" /><span>{{
+          post.author
+        }}</span></button
+      ><button
+        class="like"
+        :class="{ selected: post.isLiked }"
+        :aria-label="`${post.isLiked ? '取消点赞' : '点赞'} ${post.title}`"
+        :aria-pressed="!!post.isLiked"
+        @click="emit('toggle-post-like', post.id)"
+      >
+        <AppIcon name="heart" :size="18" /><span>{{ formatCount(post.likes) }}</span></button
+      ><template v-if="timeline"
+        ><button class="like" aria-label="评论" @click="emit('open-comment-detail', post.id)">
+          <AppIcon name="comment" :size="18" />{{ post.comments }}</button
+        ><button
+          class="like"
+          :class="{ selected: post.isFavorited }"
+          :aria-label="post.isFavorited ? '取消收藏' : '收藏'"
+          @click="emit('toggle-post-favorite', post.id)"
+        >
+          <AppIcon name="bookmark" :size="18" /></button
+        ><button class="like" aria-label="分享" @click="emit('share-post', post.id)">
+          <AppIcon name="share" :size="18" /></button
+      ></template>
+    </footer>
+  </article>
 </template>
-
 <style scoped>
-.card {
-	background: #fff;
-	border-radius: 12px;
-	border: 1px solid #e9edf3;
-	padding: 16px 20px 14px;
-	cursor: pointer;
-	transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+.post-card {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  align-self: start;
+  transition: border-color var(--duration);
 }
-
-.card:hover {
-	transform: translateY(-2px);
-	border-color: #dce4f5;
-	box-shadow: 0 10px 24px rgba(25, 40, 74, 0.08);
+.post-card:hover {
+  border-color: #d6cfc7;
 }
-
-.card-head {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
-	gap: 10px;
+.content-link {
+  display: block;
 }
-
-.author-wrap {
-	display: flex;
-	gap: 10px;
+.cover {
+  position: relative;
+  aspect-ratio: 4/5;
+  background: #eeeae4;
+  overflow: hidden;
 }
-
-.author-avatar {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
-	background: linear-gradient(145deg, #f4bf80, #e88e47);
-	box-shadow: inset 0 0 0 2px #fff;
-	border: 1px solid #e7d3bf;
-	display: grid;
-	place-items: center;
-	overflow: hidden;
-	color: #fff;
-	font-size: 14px;
-	font-weight: 700;
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
-
-.author-avatar img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
+.image-error {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
 }
-
-.meta-line {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 8px;
-	font-size: 12px;
-	color: #8c94a7;
+.image-count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #24242499;
+  color: white;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
 }
-
-.status-tag {
-	padding: 2px 8px;
-	border-radius: 999px;
-	font-size: 11px;
-	line-height: 1.3;
-	color: #7f5e00;
-	background: #fff8de;
-	border: 1px solid #ffe8a3;
+.card-copy {
+  padding: 12px 14px 0;
 }
-
-.author {
-	font-size: 13px;
-	font-weight: 600;
-	color: #515869;
+.card-copy h2 {
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-
-.title {
-	margin: 6px 0 0;
-	font-size: 22px;
-	line-height: 1.35;
-	font-weight: 700;
-	letter-spacing: 0.3px;
-}
-
-.follow {
-	height: 32px;
-	min-width: 74px;
-	border-radius: 999px;
-	border: none;
-	cursor: pointer;
-	color: #fff;
-	font-weight: 600;
-	background: linear-gradient(180deg, #30c6ff, #13a6f6);
-}
-
-.follow.followed {
-	background: #eef3f8;
-	color: #74819a;
-	border: 1px solid #d8e1ed;
-}
-
 .summary {
-	margin: 10px 0 12px 46px;
-	color: #697084;
-	font-size: 14px;
-	line-height: 1.6;
-	display: -webkit-box;
-	-webkit-line-clamp: 3;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
+  margin: 12px 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-
-.images {
-	margin-left: 46px;
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 8px;
-	max-width: 520px;
+.textual .card-copy {
+  min-height: 260px;
+  padding: 24px 18px 12px;
 }
-
-.images.single {
-	grid-template-columns: 1fr;
-	max-width: 180px;
+.textual .card-copy h2 {
+  font-size: 20px;
+  -webkit-line-clamp: 3;
 }
-
-.img {
-	position: relative;
-	border-radius: 8px;
-	aspect-ratio: 16 / 10;
-	overflow: hidden;
+.text-note {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 24px;
 }
-
-.img-watermark {
-	position: absolute;
-	right: 8px;
-	bottom: 8px;
-	font-size: 11px;
-	color: rgba(255, 255, 255, 0.95);
-	background: rgba(0, 0, 0, 0.35);
-	border-radius: 999px;
-	padding: 2px 8px;
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 10px 8px;
 }
-
-.tags {
-	margin: 10px 0 8px 46px;
-	display: flex;
-	gap: 8px;
-	flex-wrap: wrap;
+.author,
+.like {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  background: none;
+  min-height: 44px;
+  min-width: 36px;
+  padding: 4px;
+  color: var(--muted);
+  font-size: 12px;
 }
-
-.tag {
-	background: #f3f5f8;
-	color: #798197;
-	font-size: 12px;
-	border-radius: 999px;
-	padding: 4px 10px;
-	border: 1px solid #e6ebf3;
+.author {
+  min-width: 0;
+  max-width: 75%;
 }
-
-.stats {
-	margin-left: 46px;
-	color: #9aa3b6;
-	display: flex;
-	justify-content: flex-end;
-	gap: 18px;
-	font-size: 13px;
+.author > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.stats-btn {
-	border: none;
-	background: transparent;
-	padding: 0;
-	font: inherit;
-	color: inherit;
-	cursor: pointer;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	transition: color 0.15s ease;
+.like {
+  flex-shrink: 0;
 }
-
-.stats-btn:hover {
-	color: #5a6787;
+.selected {
+  color: var(--accent-hover);
 }
-
-.stats-btn.liked {
-	color: #ff7a59;
-	font-weight: 600;
+.selected svg {
+  fill: #ed5b5618;
 }
-
-.stats-btn.favorited {
-	color: #f2a100;
-	font-weight: 600;
+.timeline {
+  padding: 20px;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  background: transparent;
 }
-
-@media (max-width: 768px) {
-	.title {
-		font-size: 18px;
-	}
-
-	.summary,
-	.images,
-	.tags,
-	.stats {
-		margin-left: 0;
-	}
-
-	.images {
-		max-width: none;
-	}
+.timeline-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.timeline-author .author {
+  max-width: 60%;
+  flex-shrink: 1;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+.timeline-author > .text-button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+time {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: auto;
+}
+.timeline .content-link {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.timeline .card-copy,
+.timeline.textual .card-copy {
+  min-height: 0;
+  padding: 12px 0;
+}
+.timeline .card-copy h2 {
+  font-size: 19px;
+}
+.timeline .text-note {
+  display: none;
+}
+.timeline .cover {
+  max-height: 440px;
+  aspect-ratio: 4/3;
+  border-radius: 10px;
+}
+.timeline .cover.gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  aspect-ratio: 2/1;
+}
+.timeline footer {
+  justify-content: flex-start;
+  gap: 24px;
+  padding: 12px 0 0;
+}
+@media (max-width: 767px) {
+  .card-copy {
+    padding: 10px 10px 0;
+  }
+  .card-copy h2 {
+    font-size: 14px;
+  }
+  .textual .card-copy {
+    padding: 18px 12px 6px;
+    min-height: 220px;
+  }
+  .textual .card-copy h2 {
+    font-size: 17px;
+  }
+  .summary {
+    font-size: 13px;
+  }
+  footer {
+    padding: 4px 6px;
+  }
+  .timeline {
+    padding: 16px 4px;
+  }
+  .timeline footer {
+    gap: 24px;
+  }
+  .author {
+    max-width: 70%;
+  }
+  .author > span:last-child {
+    max-width: 84px;
+  }
 }
 </style>

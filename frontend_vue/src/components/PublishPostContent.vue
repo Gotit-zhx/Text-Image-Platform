@@ -1,431 +1,580 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import type { Post, PublishPayload } from '../types'
-
+import { publishPostApi, saveEditedPostApi } from '../api/community'
+import { apiRequest } from '../api/client'
+import { uploadImage, type MediaAsset, type DraftRecord } from '../api/media'
+import ConfirmDialog from './ui/ConfirmDialog.vue'
+import BaseButton from './ui/BaseButton.vue'
+import UiState from './ui/UiState.vue'
 const props = withDefaults(
-	defineProps<{
-		mode?: 'create' | 'edit'
-		initialPost?: Post | null
-	}>(),
-	{
-		mode: 'create',
-		initialPost: null
-	}
+  defineProps<{ mode?: 'create' | 'edit'; initialPost?: Post | null; userId?: number }>(),
+  { mode: 'create', initialPost: null }
 )
-
-const emit = defineEmits<{
-	(e: 'publish', payload: PublishPayload): void
-	(e: 'save-edit', payload: PublishPayload): void
-}>()
-
-const title = ref('')
-const content = ref('')
-const tagInput = ref('')
-const tags = ref<string[]>([])
-const submitTip = ref('')
+const emit = defineEmits<{ saved: [post: Post] }>()
+const route = useRoute(),
+  router = useRouter(),
+  title = ref(''),
+  content = ref(''),
+  tagInput = ref(''),
+  tags = ref<string[]>([])
+const pending = ref(false),
+  saving = ref(false),
+  loading = ref(false),
+  error = ref(''),
+  saveMessage = ref(''),
+  savedSnapshot = ref('')
+const draftId = ref<number>(),
+  draftVersion = ref<number>(),
+  requestKey = ref(crypto.randomUUID()),
+  draftKey = ref(crypto.randomUUID())
+const labelEditor = (quill: {
+  root: HTMLElement
+  getModule: (name: string) => { container: HTMLElement }
+}) => {
+  quill.root.setAttribute('role', 'textbox')
+  quill.root.setAttribute('aria-label', '正文')
+  quill.root.setAttribute('aria-multiline', 'true')
+  const labels: Record<string, string> = {
+    bold: '加粗',
+    italic: '斜体',
+    underline: '下划线',
+    list: '列表',
+    link: '插入链接',
+    clean: '清除格式'
+  }
+  for (const button of quill.getModule('toolbar').container.querySelectorAll('button')) {
+    const key =
+      Array.from(button.classList as DOMTokenList)
+        .find((c) => c.startsWith('ql-'))
+        ?.slice(3) || ''
+    button.setAttribute('aria-label', labels[key] || '正文格式')
+  }
+}
 const quillRef = ref<InstanceType<typeof QuillEditor> | null>(null)
-
-const titleCount = computed(() => title.value.length)
-const contentCount = computed(() => {
-	const plain = content.value.replace(/<[^>]*>/g, '').trim()
-	return plain.length
-})
-
-const toolbarOptions = [
-	['bold', 'italic', 'underline'],
-	[{ header: [1, 2, false] }],
-	[{ list: 'ordered' }, { list: 'bullet' }],
-	['image'],
-	['link'],
-	['clean']
-]
-
-const readFileAsDataUrl = (file: Blob) =>
-	new Promise<string>((resolve, reject) => {
-		const reader = new FileReader()
-		reader.onload = () => resolve(String(reader.result || ''))
-		reader.onerror = () => reject(new Error('读取图片失败'))
-		reader.readAsDataURL(file)
-	})
-
-const loadImage = (src: string) =>
-	new Promise<HTMLImageElement>((resolve, reject) => {
-		const image = new Image()
-		image.onload = () => resolve(image)
-		image.onerror = () => reject(new Error('解析图片失败'))
-		image.src = src
-	})
-
-const compressImageFile = async (file: File) => {
-	const rawDataUrl = await readFileAsDataUrl(file)
-	if (file.type === 'image/gif') {
-		return rawDataUrl
-	}
-
-	const image = await loadImage(rawDataUrl)
-	const maxSide = 1600
-	const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
-	const targetWidth = Math.max(1, Math.round(image.width * scale))
-	const targetHeight = Math.max(1, Math.round(image.height * scale))
-
-	const canvas = document.createElement('canvas')
-	canvas.width = targetWidth
-	canvas.height = targetHeight
-
-	const ctx = canvas.getContext('2d')
-	if (!ctx) {
-		return rawDataUrl
-	}
-
-	ctx.drawImage(image, 0, 0, targetWidth, targetHeight)
-
-	const blob = await new Promise<Blob | null>((resolve) => {
-		canvas.toBlob((result) => resolve(result), 'image/jpeg', 0.82)
-	})
-
-	if (!blob) {
-		return rawDataUrl
-	}
-
-	if (blob.size >= file.size) {
-		return rawDataUrl
-	}
-
-	return readFileAsDataUrl(blob)
+type UploadItem = {
+  key: string
+  file?: File
+  asset?: MediaAsset
+  progress: number
+  error: string
+  controller?: AbortController
+  preview: string
 }
-
-const handleImageUpload = () => {
-	const input = document.createElement('input')
-	input.type = 'file'
-	input.accept = 'image/*'
-	input.onchange = async () => {
-		const file = input.files?.[0]
-		if (!file) return
-
-		if (file.size > 12 * 1024 * 1024) {
-			submitTip.value = '单张图片不能超过 12MB'
-			return
-		}
-
-		try {
-			const dataUrl = await compressImageFile(file)
-			if (dataUrl.length > 1_800_000) {
-				submitTip.value = '图片过大，请压缩后再上传'
-				return
-			}
-
-			const quill = quillRef.value?.getQuill?.()
-			if (!quill) return
-			const range = quill.getSelection(true)
-			const index = range?.index ?? quill.getLength()
-			quill.insertEmbed(index, 'image', dataUrl, 'user')
-			quill.setSelection(index + 1)
-			submitTip.value = ''
-		} catch {
-			submitTip.value = '图片处理失败，请重试'
-		}
-	}
-	input.click()
-}
-
-const handleEditorReady = (quill: any) => {
-	quill.getModule('toolbar')?.addHandler('image', handleImageUpload)
-}
-
-const normalizeTag = (raw: string) => raw.trim().replace(/^#+/, '')
-
-const handleAddTag = () => {
-	const value = normalizeTag(tagInput.value)
-	if (!value) return
-	if (tags.value.includes(value)) {
-		submitTip.value = '标签已存在'
-		return
-	}
-	if (tags.value.length >= 5) {
-		submitTip.value = '最多添加5个标签'
-		return
-	}
-	tags.value.push(value)
-	tagInput.value = ''
-	submitTip.value = ''
-}
-
-const handleRemoveTag = (index: number) => {
-	tags.value.splice(index, 1)
-}
-
-const handlePublish = () => {
-	const plainContent = content.value.replace(/<[^>]*>/g, '').trim()
-	if (!title.value.trim()) {
-		submitTip.value = '请先填写标题'
-		return
-	}
-
-	if (!plainContent) {
-		submitTip.value = '请先填写内容'
-		return
-	}
-
-	if (tagInput.value.trim()) {
-		handleAddTag()
-	}
-
-	const payload: PublishPayload = {
-		title: title.value.trim(),
-		contentHtml: content.value,
-		tags: [...tags.value]
-	}
-
-	if (props.mode === 'edit') {
-		emit('save-edit', payload)
-		submitTip.value = '保存成功'
-		return
-	}
-
-	emit('publish', payload)
-
-	submitTip.value = '发布成功'
-	title.value = ''
-	content.value = ''
-	tagInput.value = ''
-	tags.value = []
-}
-
-watch(
-	() => props.initialPost,
-	(post) => {
-		if (!post) return
-		title.value = post.title
-		content.value = post.contentHtml || `<p>${post.summary}</p>`
-		tags.value = [...post.tags]
-		tagInput.value = ''
-		submitTip.value = ''
-	},
-	{ immediate: true }
+const uploads = ref<UploadItem[]>([]),
+  input = ref<HTMLInputElement | null>(null)
+const snapshot = computed(() =>
+  JSON.stringify({
+    title: title.value,
+    contentHtml: content.value,
+    tags: tags.value,
+    mediaIds: uploads.value.filter((u) => u.asset).map((u) => u.asset!.id)
+  })
 )
+const dirty = computed(() => snapshot.value !== savedSnapshot.value)
+const busyUploads = computed(() => uploads.value.some((u) => !u.asset))
+let timer: ReturnType<typeof setTimeout> | undefined,
+  disposed = false
+const backupKey = computed(
+  () =>
+    `baicaoyuan-recovery:${props.userId || 0}:${props.mode === 'edit' ? props.initialPost?.id || 'edit' : draftId.value || 'new'}`
+)
+const payload = (): PublishPayload => ({
+  title: title.value,
+  contentHtml: content.value,
+  tags: [...tags.value],
+  mediaIds: uploads.value.filter((u) => u.asset).map((u) => u.asset!.id),
+  requestKey: requestKey.value,
+  ...(draftId.value ? { draftId: draftId.value } : {})
+})
+const upload = async (item: UploadItem) => {
+  if (!item.file) return
+  const controller = new AbortController()
+  item.controller = controller
+  item.error = ''
+  item.progress = 0
+  try {
+    item.asset = await uploadImage(item.file, (p) => (item.progress = p), controller.signal)
+    item.progress = 100
+  } catch (e) {
+    item.error = e instanceof Error ? e.message : '上传失败'
+  } finally {
+    item.controller = undefined
+  }
+}
+const addFiles = (files: FileList | File[]) => {
+  if (pending.value) return
+  for (const file of Array.from(files)) {
+    if (uploads.value.length >= 9) {
+      error.value = '最多9张图片'
+      break
+    }
+    const item: UploadItem = {
+      key: crypto.randomUUID(),
+      file,
+      progress: 0,
+      error: '',
+      preview: URL.createObjectURL(file)
+    }
+    uploads.value.push(item)
+    void upload(uploads.value[uploads.value.length - 1]!)
+  }
+}
+const remove = async (index: number) => {
+  if (pending.value) return
+  const item = uploads.value[index]
+  if (!item) return
+  item.controller?.abort()
+  if(item.asset){const doc=new DOMParser().parseFromString(content.value,'text/html');for(const image of doc.querySelectorAll('img'))if(image.getAttribute('src')===item.asset.url)image.remove();content.value=doc.body.innerHTML}
+  uploads.value.splice(index, 1)
+  if (item.preview.startsWith('blob:')) URL.revokeObjectURL(item.preview)
+  if (item.asset) {
+    try {
+      await apiRequest(`/media/${item.asset.id}`, { method: 'DELETE' })
+    } catch {
+      /* Linked assets remain protected until draft/post save releases them. */
+    }
+  }
+}
+const move = (index: number, delta: number) => {
+  if (pending.value) return
+  const target = index + delta
+  if (target < 0 || target >= uploads.value.length) return
+  const [item] = uploads.value.splice(index, 1)
+  if (item) uploads.value.splice(target, 0, item)
+}
+const insert = (item: UploadItem) => {
+  if (pending.value) return
+  if (!item.asset) return
+  const quill = quillRef.value?.getQuill()
+  if (!quill) return
+  const range = quill.getSelection(true)
+  quill.insertEmbed(range?.index ?? quill.getLength(), 'image', item.asset.url, 'user')
+}
+const addTag = () => {
+  if (pending.value) return
+  const tag = tagInput.value.trim().replace(/^#+/, '')
+  if (tag && !tags.value.includes(tag) && tags.value.length < 5 && tag.length <= 24) {
+    tags.value.push(tag)
+    tagInput.value = ''
+  }
+}
+const pendingDraftCreate=ref<{body:string;snapshot:string}>()
+const saveDraft = async () => {
+  if (saving.value || pending.value || loading.value || busyUploads.value || props.mode === 'edit')
+    return
+  if (timer) clearTimeout(timer)
+  saving.value = true
+  error.value = ''
+  saveMessage.value = '保存中…'
+  const oldKey=backupKey.value
+  const nextBody=JSON.stringify({...payload(),requestKey:draftKey.value,...(draftVersion.value?{version:draftVersion.value}:{})})
+  if(!draftId.value&&!pendingDraftCreate.value)pendingDraftCreate.value={body:nextBody,snapshot:snapshot.value}
+  const sent=draftId.value?snapshot.value:pendingDraftCreate.value!.snapshot
+  try {
+    const result = await apiRequest<DraftRecord>(draftId.value?`/drafts/${draftId.value}`:'/drafts',{
+      method:draftId.value?'PUT':'POST',body:draftId.value?nextBody:pendingDraftCreate.value!.body
+    })
+    if (disposed) return
+    pendingDraftCreate.value=undefined
+    draftId.value = result.id
+    draftVersion.value = result.version
+    savedSnapshot.value = sent
+    saveMessage.value = dirty.value
+      ? '已保存提交版本，新修改待保存'
+      : '已保存 · ' + new Date(result.updatedAt).toLocaleTimeString()
+    localStorage.removeItem(oldKey)
+    if(dirty.value&&props.userId)localStorage.setItem(backupKey.value,snapshot.value)
+    if (!route.query.draft)
+      await router.replace({ path: route.path, query: { ...route.query, draft: result.id } })
+  } catch (e) {
+    if (disposed) return
+    saveMessage.value = '保存失败，本地恢复副本已保留'
+    error.value = e instanceof Error ? e.message : '保存失败'
+    if(draftId.value){try{const latest=await apiRequest<DraftRecord>(`/drafts/${draftId.value}`);if(disposed)return;const server=JSON.stringify({title:latest.title,contentHtml:latest.contentHtml,tags:latest.tags,mediaIds:latest.mediaIds});if(server===sent){draftVersion.value=latest.version;savedSnapshot.value=sent;saveMessage.value=dirty.value?'已确认提交版本，新修改待保存':'已确认服务器保存';error.value=''}}catch{}}
+  } finally {
+    saving.value = false
+    if (dirty.value && !error.value && !disposed) timer = setTimeout(saveDraft, 1800)
+  }
+}
+watch(snapshot, () => {
+  if (loading.value) return
+  if (timer) clearTimeout(timer)
+  if (props.userId && dirty.value) localStorage.setItem(backupKey.value, snapshot.value)
+  if (dirty.value && props.mode === 'create' && (title.value || content.value))
+    timer = setTimeout(saveDraft, 1800)
+})
+const lastAttempt = ref('')
+const submit = async () => {
+  if (pending.value || saving.value || busyUploads.value) return
+  if (!title.value.trim()) {
+    error.value = '请输入标题'
+    return
+  }
+  addTag()
+  if (lastAttempt.value && lastAttempt.value !== snapshot.value)
+    requestKey.value = crypto.randomUUID()
+  lastAttempt.value = snapshot.value
+  pending.value = true
+  error.value = ''
+  if (timer) clearTimeout(timer)
+  try {
+    const submitted=snapshot.value
+    const post =
+      props.mode === 'edit' && props.initialPost
+        ? await saveEditedPostApi(props.initialPost.id, payload())
+        : await publishPostApi(payload())
+    if (disposed) return
+    savedSnapshot.value = submitted
+    emit('saved', post)
+    if(snapshot.value!==submitted){error.value='作品已提交，提交期间的新修改已保留。请检查并继续编辑。';return}
+    localStorage.removeItem(backupKey.value)
+    await router.push(`/detail/${post.id}`)
+  } catch (e) {
+    if (!disposed) error.value = e instanceof Error ? e.message : '提交失败，输入已保留'
+  } finally {
+    pending.value = false
+  }
+}
+const restore = ref<string | null>(null)
+const applyRecovery = async () => {
+  if (!restore.value) return
+  try {
+    const data = JSON.parse(restore.value)
+    title.value = data.title
+    content.value = data.contentHtml
+    tags.value = data.tags
+    const recovered: UploadItem[] = []
+    let missing = false
+    for (const id of data.mediaIds || []) {
+      const existing = uploads.value.find((u) => u.asset?.id === id)
+      if (existing) recovered.push(existing)
+      else try {
+        const asset = await apiRequest<MediaAsset>(`/media/${id}`)
+        recovered.push({
+          key: String(id),
+          asset,
+          progress: 100,
+          error: '',
+          preview: asset.thumbnailUrl
+        })
+      } catch { missing = true }
+    }
+    uploads.value = recovered
+    saveMessage.value = '已恢复本地副本，请检查后保存'
+    if (missing) error.value = '部分图片已不可用，文字与其余图片顺序已恢复，请重新上传'
+  } catch {
+    error.value = '部分图片已不可用，文字已保留，请重新上传'
+  }
+  restore.value = null
+}
+const populate = (data: {
+  title: string
+  contentHtml?: string
+  tags: string[]
+  media?: MediaAsset[]
+}) => {
+  title.value = data.title
+  content.value = data.contentHtml || ''
+  tags.value = [...data.tags]
+  uploads.value = (data.media || []).map((a) => ({
+    key: String(a.id),
+    asset: a,
+    progress: 100,
+    error: '',
+    preview: a.thumbnailUrl
+  }))
+  savedSnapshot.value = snapshot.value
+}
+onMounted(async () => {
+  loading.value = true
+  try {
+    if (props.mode === 'edit' && props.initialPost) populate(props.initialPost)
+    else if (route.query.draft) {
+      const draft = await apiRequest<DraftRecord>(`/drafts/${route.query.draft}`)
+      draftId.value = draft.id
+      draftVersion.value = draft.version
+      populate(draft)
+    } else savedSnapshot.value = snapshot.value
+    restore.value = props.userId ? localStorage.getItem(backupKey.value) : null
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '草稿加载失败'
+  } finally {
+    loading.value = false
+  }
+})
+const beforeUnload = (e: BeforeUnloadEvent) => {
+  if (dirty.value || busyUploads.value) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+window.addEventListener('beforeunload', beforeUnload)
+const leaveOpen = ref(false)
+let resolveLeave: ((value: boolean) => void) | undefined
+const decideLeave = (leave: boolean) => {
+  leaveOpen.value = false
+  resolveLeave?.(leave)
+  resolveLeave = undefined
+}
+const unregister = router.beforeEach((to, from) => {
+  if (to.path === from.path) return true
+  if (dirty.value || busyUploads.value) {
+    leaveOpen.value = true
+    return new Promise<boolean>((resolve) => {
+      resolveLeave = resolve
+    })
+  }
+  return true
+})
+onBeforeUnmount(() => {
+  disposed = true
+  unregister()
+  window.removeEventListener('beforeunload', beforeUnload)
+  if (timer) clearTimeout(timer)
+  resolveLeave?.(true)
+  uploads.value.forEach((u) => {
+    u.controller?.abort()
+    if (u.preview.startsWith('blob:')) URL.revokeObjectURL(u.preview)
+  })
+})
 </script>
-
 <template>
-	<main class="publish-page">
-		<section class="publish-card">
-			<h2>{{ mode === 'edit' ? '编辑帖子' : '发布帖子' }}</h2>
-
-			<div class="form-row">
-				<label>标题：</label>
-				<div class="field-wrap">
-					<el-input v-model="title" maxlength="30" show-word-limit placeholder="标题(必填)" />
-					<span class="counter">{{ titleCount }}/30</span>
-				</div>
-			</div>
-
-			<div class="form-row content-row">
-				<label>内容：</label>
-				<div class="field-wrap">
-					<div class="editor-wrap">
-						<QuillEditor
-							ref="quillRef"
-							v-model:content="content"
-							content-type="html"
-							theme="snow"
-							:toolbar="toolbarOptions"
-							@ready="handleEditorReady"
-							placeholder="请尽情发挥吧..."
-						/>
-					</div>
-					<span class="counter content-counter">{{ contentCount }}/30000</span>
-				</div>
-			</div>
-
-			<div class="form-row">
-				<label>设置标签：</label>
-				<div class="field-wrap tag-wrap">
-					<div class="tag-input-row">
-						<el-input
-							v-model="tagInput"
-							placeholder="输入标签后点击添加"
-							@keydown.enter.prevent="handleAddTag"
-						/>
-						<el-button class="tag-add-btn" type="primary" plain @click="handleAddTag">添加</el-button>
-					</div>
-					<div v-if="tags.length" class="tag-list">
-						<el-tag
-							v-for="(item, idx) in tags"
-							:key="`${item}-${idx}`"
-							class="tag-chip"
-							closable
-							@close="handleRemoveTag(idx)"
-						>
-							{{ item }}
-						</el-tag>
-					</div>
-				</div>
-			</div>
-
-			<div class="submit-wrap">
-				<el-button class="submit-btn" type="primary" @click="handlePublish">{{ mode === 'edit' ? '保存修改' : '发布' }}</el-button>
-			</div>
-			<p v-if="submitTip" class="submit-tip">{{ submitTip }}</p>
-		</section>
-	</main>
+  <main class="editor-page page-container">
+    <header>
+      <h1>{{ mode === 'edit' ? '编辑作品' : '写下新的灵感' }}</h1>
+      <RouterLink to="/drafts" class="text-button">我的草稿</RouterLink>
+    </header>
+    <UiState v-if="loading" kind="loading" />
+    <template v-else>
+      <div v-if="restore" class="recovery" role="status">
+        发现同账号本地恢复副本。<button @click="applyRecovery">恢复副本</button
+        ><button @click="restore = null">忽略</button>
+      </div>
+      <label class="title-field"
+        >标题<input v-model="title" :readonly="pending" maxlength="255" placeholder="给这份记录起个名字"
+      /></label>
+      <div
+        class="upload-zone"
+        @dragover.prevent
+        @drop.prevent="addFiles($event.dataTransfer?.files || [])"
+      >
+        <p>添加图片（最多9张，每张10MiB以内）</p>
+        <input
+          ref="input"
+          type="file"
+          aria-label="添加图片，最多9张，每张10MiB以内"
+          :disabled="pending"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          @change="
+            addFiles(($event.target as HTMLInputElement).files || [])
+            ;($event.target as HTMLInputElement).value = ''
+          "
+        />
+        <div class="media-list">
+          <article v-for="(item, index) in uploads" :key="item.key">
+            <img :src="item.preview" alt="待发布图片" width="120" height="120" />
+            <p>{{ item.asset ? '上传完成' : item.error || `${item.progress}%` }}</p>
+            <progress
+              v-if="!item.asset && !item.error"
+              :value="item.progress"
+              max="100"
+              aria-label="上传进度"
+            />
+            <div>
+              <button :disabled="pending || index === 0" @click="move(index, -1)" aria-label="图片前移">
+                ←</button
+              ><button
+                :disabled="pending || index === uploads.length - 1"
+                @click="move(index, 1)"
+                aria-label="图片后移"
+              >
+                →</button
+              ><button :disabled="pending" @click="remove(index)">{{ item.controller ? '取消' : '移除' }}</button
+              ><button v-if="item.error" :disabled="pending" @click="upload(item)">重试</button
+              ><button v-if="item.asset" :disabled="pending" @click="insert(item)">插入正文</button>
+            </div>
+          </article>
+        </div>
+      </div>
+      <label class="editor-label">正文</label
+      ><QuillEditor :read-only="pending"
+        @ready="labelEditor"
+        ref="quillRef"
+        v-model:content="content"
+        content-type="html"
+        theme="snow"
+        :toolbar="[
+          ['bold', 'italic', 'underline'],
+          [{ header: [1, 2, false] }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['link'],
+          ['clean']
+        ]"
+      />
+      <div class="tag-editor">
+        <span v-for="(tag, i) in tags" :key="tag" class="tag"
+          >#{{ tag }}
+          <button :disabled="pending" :aria-label="`移除标签${tag}`" @click="tags.splice(i, 1)">×</button></span
+        ><input
+          v-model="tagInput"
+          :readonly="pending"
+          maxlength="24"
+          placeholder="添加标签，回车确认"
+          aria-label="标签"
+          @keydown.enter.prevent="addTag"
+        /><BaseButton :disabled="pending" @click="addTag">添加</BaseButton>
+      </div>
+      <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <p role="status">{{ saveMessage }}</p>
+      <footer>
+        <BaseButton
+          v-if="mode === 'create'"
+          :pending="saving"
+          :disabled="pending || busyUploads"
+          @click="saveDraft"
+          >保存草稿</BaseButton
+        ><BaseButton
+          variant="primary"
+          :pending="pending"
+          :disabled="saving || busyUploads"
+          @click="submit"
+          >{{ mode === 'edit' ? '确认保存' : '确认发布' }}</BaseButton
+        >
+      </footer>
+    </template>
+  </main>
+  <ConfirmDialog
+    :open="leaveOpen"
+    title="离开尚未保存的创作？"
+    description="内容尚未保存或仍在上传。本地恢复副本仅对当前账号可用；建议先保存草稿。"
+    @cancel="decideLeave(false)"
+    @confirm="decideLeave(true)"
+  />
 </template>
-
 <style scoped>
-.publish-page {
-	max-width: 1180px;
-	margin: 20px auto;
-	padding: 0 16px;
+.editor-page {
+  max-width: 960px;
 }
-
-.publish-card {
-	background: #fff;
-	border: 1px solid #e9edf3;
-	border-radius: 6px;
-	padding: 0 0 32px;
+header,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-
-.publish-card h2 {
-	margin: 0;
-	padding: 18px 24px;
-	font-size: 28px;
-	line-height: 1;
-	border-bottom: 1px solid #edf0f5;
+.title-field {
+  display: block;
+  margin: 24px 0;
+  font-size: 13px;
+  color: var(--muted);
 }
-
-.form-row {
-	display: grid;
-	grid-template-columns: 90px 1fr;
-	gap: 16px;
-	padding: 18px 40px 0;
-	align-items: start;
+.title-field input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 20px;
+  color: var(--text);
 }
-
-.form-row > label {
-	line-height: 40px;
-	font-size: 16px;
-	color: #2f3748;
+.upload-zone {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 24px;
 }
-
-.field-wrap {
-	position: relative;
+.upload-zone > p {
+  margin-top: 0;
+  color: var(--muted);
 }
-
-:deep(.field-wrap .el-input__wrapper) {
-	min-height: 40px;
+.media-list {
+  display: flex;
+  gap: 12px;
+  overflow: auto;
+  margin-top: 12px;
 }
-
-.counter {
-	position: absolute;
-	right: 12px;
-	top: 11px;
-	font-size: 12px;
-	color: #b8becb;
+.media-list article {
+  width: 144px;
+  flex-shrink: 0;
+  font-size: 12px;
 }
-
-.content-row {
-	align-items: start;
+.media-list img {
+  object-fit: cover;
+  border-radius: 8px;
+  width: 144px;
+  height: 120px;
 }
-
-.editor-wrap {
-	border: 1px solid #e3e7ef;
-	border-radius: 4px;
-	overflow: hidden;
-	background: #fff;
+.media-list button,
+.tag button,
+.recovery button {
+  border: 0;
+  background: none;
+  padding: 6px;
+  color: var(--accent-hover);
+  min-height: 36px;
 }
-
-:deep(.ql-toolbar.ql-snow) {
-	border: none;
-	border-bottom: 1px solid #edf0f5;
+.media-list p {
+  margin: 4px 0;
 }
-
-:deep(.ql-container.ql-snow) {
-	border: none;
-	min-height: 260px;
+.tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 24px;
 }
-
-:deep(.ql-container) {
-	min-height: 260px;
+.tag-editor input {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-width: 100%;
+  min-width: 0;
 }
-
-:deep(.ql-editor) {
-	min-height: 220px;
+.error {
+  color: var(--danger);
 }
-
-.content-counter {
-	top: auto;
-	bottom: 12px;
+.editor-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
 }
-
-.tag-wrap {
-	max-width: 300px;
+footer {
+  justify-content: flex-end;
+  margin: 24px 0;
 }
-
-.tag-input-row {
-	display: flex;
-	gap: 8px;
+.recovery {
+  padding: 12px;
+  background: #fff4df;
+  border-radius: 10px;
 }
-
-.tag-input-row :deep(.el-input) {
-	flex: 1;
+.editor-page :deep(.ql-container) {
+  min-height: 280px;
+  background: var(--surface);
+  font: inherit;
+  border-color: var(--border);
+  border-radius: 0 0 10px 10px;
 }
-
-.tag-add-btn {
-	width: 64px;
-	height: 40px;
+.editor-page :deep(.ql-toolbar) {
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: 10px 10px 0 0;
 }
-
-.tag-list {
-	margin-top: 10px;
-	display: flex;
-	gap: 8px;
-	flex-wrap: wrap;
+.editor-page :deep(.ql-editor) {
+  min-height: 280px;
+  overflow-wrap: anywhere;
 }
-
-.tag-chip {
-	border-radius: 999px;
+.editor-page :deep(.ql-tooltip) {
+  left: 0 !important;
+  max-width: 100%;
+  white-space: normal;
 }
-
-.submit-wrap {
-	display: flex;
-	justify-content: center;
-	margin-top: 40px;
-}
-
-.submit-btn {
-	width: 160px;
-	height: 36px;
-	border: none;
-	border-radius: 4px;
-	cursor: pointer;
-	background: linear-gradient(180deg, #2dc7ff, #0fb0f6);
-	color: #fff;
-	font-size: 14px;
-}
-
-.submit-tip {
-	margin: 12px 0 0;
-	height: 36px;
-	font-size: 12px;
-	line-height: 36px;
-	text-align: center;
-	color: #8a95a8;
-}
-
-@media (max-width: 768px) {
-	.form-row {
-		grid-template-columns: 1fr;
-		padding: 16px;
-		gap: 8px;
-	}
-
-	.form-row > label {
-		line-height: 1.2;
-	}
-
-	.tag-wrap {
-		max-width: none;
-	}
-}
-
 </style>

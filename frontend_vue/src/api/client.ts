@@ -1,68 +1,58 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
-const API_TIMEOUT_MS = 15000
-
-type ApiEnvelope<T> = {
-	code: number
-	message: string
-	data: T
-	requestId?: string
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code = status
+  ) {
+    super(message)
+  }
 }
-
-const isEnvelope = <T>(payload: unknown): payload is ApiEnvelope<T> => {
-	return (
-		Boolean(payload) &&
-		typeof payload === 'object' &&
-		'code' in (payload as Record<string, unknown>) &&
-		'message' in (payload as Record<string, unknown>) &&
-		'data' in (payload as Record<string, unknown>)
-	)
-}
-
-const toErrorMessage = (status: number, payload: unknown) => {
-	if (payload && typeof payload === 'object' && 'message' in payload) {
-		const message = (payload as { message?: string }).message
-		if (message) return message
-	}
-
-	if (status === 401) return '登录已失效，请重新登录'
-	if (status === 403) return '无权限执行该操作'
-	if (status === 404) return '请求的资源不存在'
-	return `API request failed: ${status}`
-}
-
-export const apiRequest = async <T>(path: string, init?: RequestInit): Promise<T> => {
-	const controller = new AbortController()
-	const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
-
-	const response = await fetch(`${API_BASE_URL}${path}`, {
-		credentials: 'include',
-		signal: init?.signal ?? controller.signal,
-		headers: {
-			'Content-Type': 'application/json',
-			...(init?.headers || {})
-		},
-		...init
-	}).finally(() => {
-		clearTimeout(timer)
-	})
-
-	let payload: unknown = null
-	try {
-		payload = await response.json()
-	} catch {
-		payload = null
-	}
-
-	if (!response.ok) {
-		throw new Error(toErrorMessage(response.status, payload))
-	}
-
-	if (isEnvelope<T>(payload)) {
-		if (payload.code !== 0) {
-			throw new Error(payload.message || '请求失败')
-		}
-		return payload.data as T
-	}
-
-	return payload as T
+export const apiRequest = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  init.signal?.addEventListener('abort', abort, { once: true })
+  if (init.signal?.aborted) controller.abort()
+  const timer = setTimeout(abort, 15000)
+  const method = (init.method || 'GET').toUpperCase()
+  const headers = new Headers(init.headers)
+  if (!(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
+  try {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
+        credentials: 'include',
+        signal: controller.signal
+      })
+      const envelope = await response.json().catch(() => null)
+      if (!response.ok || !envelope?.data?.token)
+        throw new ApiError('请求验证服务暂不可用，请稍后重试', response.status)
+      headers.set('X-CSRFToken', envelope.data.token)
+    }
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      method,
+      headers,
+      credentials: 'include',
+      signal: controller.signal
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || (payload && 'code' in payload && payload.code !== 0)) {
+      if (response.status === 401 && method !== 'GET' && !path.startsWith('/auth/'))
+        window.dispatchEvent(new Event('session-expired'))
+      throw new ApiError(
+        payload?.message || `请求失败（${response.status}）`,
+        response.status,
+        payload?.code
+      )
+    }
+    return payload && 'code' in payload ? payload.data : payload
+  } catch (error) {
+    if (error instanceof TypeError) throw new ApiError('无法连接服务器，请检查网络后重试', 0)
+    if (error instanceof DOMException && error.name === 'AbortError' && !init.signal?.aborted)
+      throw new ApiError('请求超时，输入已保留，请重试', 408)
+    throw error
+  } finally {
+    clearTimeout(timer)
+    init.signal?.removeEventListener('abort', abort)
+  }
 }

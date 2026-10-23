@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import AdminPagination from '../AdminPagination.vue'
 import type { AdminCommentItem } from '../../../api/admin'
 import type { Pagination } from '../../../api/admin'
 
 const props = defineProps<{
 	items: AdminCommentItem[]
 	loading: boolean
+  canWrite?: boolean
 	pagination: Pagination
 	visibility: string
 	keyword: string
@@ -56,17 +58,17 @@ const handleReset = () => {
 		<div class="head">
 			<div class="title">评论管理</div>
 			<div class="filters">
-				<el-select v-model="localVisibility" clearable placeholder="可见性" style="width: 140px">
+				<el-select v-model="localVisibility" aria-label="评论可见性" clearable placeholder="可见性" style="width: 140px">
 					<el-option label="可见" value="visible" />
 					<el-option label="隐藏" value="hidden" />
 				</el-select>
-				<el-input v-model="localKeyword" clearable placeholder="评论/作者关键词" style="width: 220px" @keyup.enter="handleSearch" />
+				<el-input v-model="localKeyword" aria-label="评论或作者关键词" clearable placeholder="评论/作者关键词" style="width: 220px" @keyup.enter="handleSearch" />
 				<el-button type="primary" @click="handleSearch">查询</el-button>
 				<el-button @click="handleReset">重置</el-button>
 				<el-button @click="emit('refresh')">刷新</el-button>
 			</div>
 		</div>
-		<el-table :data="items" :loading="loading" border>
+		<el-table v-loading="loading" :data="items" :aria-busy="loading" border>
 			<el-table-column prop="id" label="ID" width="80" />
 			<el-table-column prop="content" label="评论" min-width="260" show-overflow-tooltip />
 			<el-table-column prop="author" label="作者" width="130" />
@@ -78,17 +80,16 @@ const handleReset = () => {
 			<el-table-column label="操作" width="200" fixed="right">
 				<template #default="scope">
 					<el-space>
-						<el-button v-if="!scope.row.isHidden" size="small" type="warning" @click="emit('hide', scope.row.id)">隐藏</el-button>
-						<el-button v-else size="small" type="success" @click="emit('restore', scope.row.id)">恢复</el-button>
-						<el-button size="small" type="danger" @click="emit('delete', scope.row.id)">删除</el-button>
+						<el-button v-if="canWrite && !scope.row.isHidden" size="small" type="warning" @click="emit('hide', scope.row.id)">隐藏</el-button>
+						<el-button v-if="canWrite && scope.row.isHidden" size="small" type="success" @click="emit('restore', scope.row.id)">恢复</el-button>
+						<el-button v-if="canWrite" size="small" type="danger" @click="emit('delete', scope.row.id)">删除</el-button>
 					</el-space>
 				</template>
 			</el-table-column>
 		</el-table>
 		<div class="pager">
-			<el-pagination
+			<AdminPagination
 				background
-				layout="total, sizes, prev, pager, next, jumper"
 				:total="props.pagination.total"
 				:current-page="props.pagination.page"
 				:page-size="props.pagination.pageSize"
