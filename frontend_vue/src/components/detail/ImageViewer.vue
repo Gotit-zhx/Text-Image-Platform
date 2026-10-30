@@ -79,6 +79,7 @@ const key = (e: KeyboardEvent) => {
     :model-value="open"
     title="图片查看器"
     width="min(1200px,96vw)"
+    align-center
     append-to-body
     class="image-viewer"
     @opened="focusViewer"

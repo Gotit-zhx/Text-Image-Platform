@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
           @share-post="emit('share', $event)"
           @open-author-profile="author"
         />
-        <div v-if="self" class="manage-row">
+        <div v-if="self && tab === 'posts'" class="manage-row">
           <span>{{ statusLabels[post.moderationStatus || 'approved'] }}</span
           ><RouterLink :to="`/edit/${post.id}`">编辑</RouterLink
           ><RouterLink
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
             >原因 / 复核 / 申诉</RouterLink
           >
         </div>
-        <p v-if="self && post.reviewReason" class="review-reason">原因：{{ post.reviewReason }}</p>
+        <p v-if="self && tab === 'posts' && post.reviewReason" class="review-reason">原因：{{ post.reviewReason }}</p>
       </div>
     </div>
     <article v-for="person in people" :key="person.id" class="person">
