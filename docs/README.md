@@ -25,9 +25,11 @@
 | `frontend_vue/e2e/`、后端 `tests*.py` | 可重放的自动化检查源码 | 是 |
 | `.run_logs/`、`test-results/`、`playwright-report/`、`coverage/` | 运行日志、测试输出和临时截图 | 否 |
 
-新增开发过程文档统一放在 `docs/local/`，该目录可按需在本地创建，不随 Git 克隆提供。原有的 AI 开发提示词、业务 TODO、验收场景、人工验收、实施报告和就绪度审查文档仍在 `.gitignore` 中逐项排除，以兼容本地已有路径。`docs/` 下以 `_TODO.md`、`_PROMPTS.md`、`_AUDIT.md`、`_ACCEPTANCE.md` 或 `_REPORT.md` 结尾的过程文档也会被忽略。
+新增开发过程文档统一放在 `docs/local/`，该目录可按需在本地创建，不随 Git 克隆提供。原有的 AI 开发提示词、业务 TODO、验收场景、人工验收、实施报告和就绪度审查文档仍在 `.gitignore` 中逐项排除，以兼容本地已有路径。`docs/` 下以 `_TODO.md`、`_PROMPTS.md`、`_AUDIT.md`、`_ACCEPTANCE.md`、`_REPORT.md`、`_PLAN.md`、`_PROGRESS.md` 或 `_NOTES.md` 结尾的过程文档，以及命名为 `TODO.md`、`NOTES.md` 的工作笔记，也会被忽略。
 
 API 契约和 UI 规范属于长期维护资料，应继续随代码更新；内部验收记录不作为公开文档的阅读依赖。界面截图保留桌面端，临时调试截图放入被忽略的运行目录。
+
+环境文件遵循相同原则：`.env`、`.env.*` 和 `*.env` 留在本地，`.env.example` 与 `.env.*.example` 可提交为无密钥配置模板。部署密钥目录 `.secrets/` 和本地备份目录 `backups/` 不提交。
 
 ## 提交前检查
 

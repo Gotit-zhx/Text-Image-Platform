@@ -45,8 +45,11 @@ test-results/
 # Recommendation cache
 recommend_system/cache/
 
-# Env files
+# Environment files: only templates belong in Git
 *.env
+.env.*
+!.env.example
+!.env.*.example
 
 # Local development mail contains single-use account links
 .dev-mail/
@@ -68,10 +71,12 @@ docs/PLATFORM_READINESS_AUDIT.md
 /docs/**/*_AUDIT.md
 /docs/**/*_ACCEPTANCE.md
 /docs/**/*_REPORT.md
+/docs/**/*_PLAN.md
+/docs/**/*_PROGRESS.md
+/docs/**/*_NOTES.md
+/docs/**/TODO.md
+/docs/**/NOTES.md
 
-# Deployment secrets and local stack configuration
-.env.compose
-.env.compose.*
-!.env.compose.example
+# Deployment secrets and local backups
 .secrets/
 backups/

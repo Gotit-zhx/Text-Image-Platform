@@ -38,7 +38,7 @@ Text-Image-Platform/
 ├── recommend_system/     # 推荐数据处理与离线训练代码
 ├── demo_assets/          # 可复现展示内容的公开许可图片
 ├── docs/                 # 公开文档、API 契约、UI 规范及桌面截图
-│   ├── assets/readme/    # README 使用的桌面端截图
+│   ├── assets/readme/     # README 使用的桌面端截图
 │   └── local/            # 本地开发过程记录（Git 忽略，不随克隆提供）
 ├── .github/workflows/    # CI 工作流
 ├── .gitignore            # 本地配置、运行产物和过程文档排除规则
