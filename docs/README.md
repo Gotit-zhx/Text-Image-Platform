@@ -7,6 +7,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [快速开始](QUICK_START.md) | 安装依赖、启动服务和体验演示内容 |
+| [Docker Compose 部署](DEPLOYMENT.md) | 个人演示站、HTTPS、SMTP、备份恢复与更新 |
 | [开发与运行说明](DEVELOPMENT_GUIDE.md) | 环境变量、启动脚本、推荐训练与 CI |
 | [项目概览](PROJECT_OVERVIEW.md) | 功能范围、技术架构和主要模块 |
 | [详细项目说明](PROJECT_DETAILS.md) | 业务模块、数据模型及项目组织 |
@@ -25,7 +26,7 @@
 | `frontend_vue/e2e/`、后端 `tests*.py` | 可重放的自动化检查源码 | 是 |
 | `.run_logs/`、`test-results/`、`playwright-report/`、`coverage/` | 运行日志、测试输出和临时截图 | 否 |
 
-新增开发过程文档统一放在 `docs/local/`，该目录可按需在本地创建，不随 Git 克隆提供。原有的 AI 开发提示词、业务 TODO、验收场景、人工验收、实施报告和就绪度审查文档仍在 `.gitignore` 中逐项排除，以兼容本地已有路径。`docs/` 下以 `_TODO.md`、`_PROMPTS.md`、`_AUDIT.md`、`_ACCEPTANCE.md`、`_REPORT.md`、`_PLAN.md`、`_PROGRESS.md` 或 `_NOTES.md` 结尾的过程文档，以及命名为 `TODO.md`、`NOTES.md` 的工作笔记，也会被忽略。
+新增开发过程文档统一放在 `docs/local/`，该目录可按需在本地创建，不随 Git 克隆提供。原有的 AI 开发提示词、业务 TODO、验收场景、人工验收、实施报告和就绪度审查文档仍在 `.gitignore` 中逐项排除，以兼容本地已有路径。`docs/` 下以 `_TODO.md`、`_PROMPTS.md`、`_AUDIT.md`、`_ACCEPTANCE.md`、`_REPORT.md`、`_PLAN.md`、`_PROGRESS.md`、`_NOTES.md` 或 `_REVIEW.md` 结尾的过程文档，以及命名为 `TODO.md`、`NOTES.md` 的工作笔记，也会被忽略。
 
 API 契约和 UI 规范属于长期维护资料，应继续随代码更新；内部验收记录不作为公开文档的阅读依赖。界面截图保留桌面端，临时调试截图放入被忽略的运行目录。
 

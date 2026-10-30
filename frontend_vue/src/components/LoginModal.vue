@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { emailActionApi } from '../api/auth'
 const recovery = ref(false), recoveryEmail = ref(''), recoveryPending = ref(false), recoveryMessage = ref('')
 const requestEmail = async (purpose: 'reset' | 'verify') => {
@@ -10,14 +10,22 @@ const requestEmail = async (purpose: 'reset' | 'verify') => {
   finally { recoveryPending.value = false }
 }
 
-defineProps<{
+const props = defineProps<{
 	visible: boolean
+  registrationEnabled: boolean
+  emailAvailable: boolean
   pending?: boolean
   error?: string
 	account: string
 	password: string
 	canLogin: boolean
 }>()
+watch(() => props.visible, (visible) => {
+  if (visible) {
+    recovery.value = false
+    recoveryMessage.value = ''
+  }
+})
 
 const emit = defineEmits<{
 	(e: 'close'): void
@@ -48,7 +56,7 @@ const handlePasswordChange = (value: unknown) => {
 		@update:model-value="(value:boolean) => { if (!value) emit('close') }"
 	>
 		<div class="login-modal">
-      <div v-if="recovery">
+      <div v-if="recovery && emailAvailable">
         <el-input v-model="recoveryEmail" type="email" aria-label="邮箱" placeholder="注册邮箱" />
         <el-button :loading="recoveryPending" @click="requestEmail('reset')">申请重置密码</el-button>
         <el-button :disabled="recoveryPending" @click="requestEmail('verify')">重发验证邮件</el-button>
@@ -76,9 +84,11 @@ const handlePasswordChange = (value: unknown) => {
 
 			<p v-if="error" role="alert">{{ error }}</p>
       <div class="login-footer">
-				<el-button link type="info" @click="recovery = true">忘记密码 / 重发验证</el-button>
-				<el-button link type="primary" @click="emit('open-register')">注册账号</el-button>
+				<el-button v-if="emailAvailable" link type="info" @click="recovery = true">忘记密码 / 重发验证</el-button>
+				<el-button v-if="registrationEnabled" link type="primary" @click="emit('open-register')">注册账号</el-button>
 			</div>
+      <p v-if="!registrationEnabled" class="muted">此演示站暂未开放注册，请使用站点管理员提供的账号。</p>
+      <p v-if="!emailAvailable" class="muted">邮件服务暂未启用，如需找回密码请联系站点管理员。</p>
       </div>
 		</div>
 	</el-dialog>

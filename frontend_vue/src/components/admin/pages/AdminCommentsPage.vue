@@ -102,7 +102,7 @@ const handleReset = () => {
 </template>
 
 <style scoped>
-.panel { background: #fff; border: 1px solid #e6ebf2; border-radius: 10px; padding: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
 .title { font-size: 16px; font-weight: 700; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }

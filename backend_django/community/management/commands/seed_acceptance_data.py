@@ -13,6 +13,8 @@ from django.core.files.base import ContentFile
 class Command(BaseCommand):
     help = '为独立测试库生成验收账号/内容；禁止用于真实数据环境'
     def handle(self, *args, **options):
+        if settings.PRODUCTION:
+            raise CommandError('生产模式禁止导入带固定凭证的验收账号。')
         if not os.environ.get('TIP_DATABASE_PATH') or Path(settings.DATABASES['default']['NAME']).resolve()==(settings.BASE_DIR/'db.sqlite3').resolve():
             raise CommandError('必须显式设置独立 TIP_DATABASE_PATH，不能使用工作数据库')
         users=[]

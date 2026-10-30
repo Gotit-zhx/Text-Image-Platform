@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { LoginUser } from '../types'
-import { loginApi, logoutApi, meApi, registerApi } from '../api/auth'
+import { authConfigApi, loginApi, logoutApi, meApi, registerApi, type AuthConfig } from '../api/auth'
 import { clearSessionUser, readSessionUser, writeSessionUser } from '../auth/session'
 
 type UseAuthStateOptions = {
@@ -19,6 +19,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
   const authError = ref('')
   const authMessage = ref('')
   const authReady = ref(false)
+  const authConfig = ref<AuthConfig>({ registrationEnabled: false, emailAvailable: false })
   const loginUser = ref<LoginUser | null>(readSessionUser())
 
   const canLogin = computed(() => account.value.trim() !== '' && password.value.trim() !== '')
@@ -32,7 +33,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
       registerConfirmPassword.value.trim() !== '' &&
       registerPassword.value === registerConfirmPassword.value
   )
-  const canRegister = computed(() => isRegisterEmailValid.value && isRegisterPasswordMatch.value)
+  const canRegister = computed(() => authConfig.value.registrationEnabled && isRegisterEmailValid.value && isRegisterPasswordMatch.value)
 
   const openLoginModal = () => {
     if (isLoggedIn.value) return
@@ -45,6 +46,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
   }
 
   const openRegisterModal = () => {
+    if (!authConfig.value.registrationEnabled) return
     showLoginModal.value = false
     showRegisterModal.value = true
   }
@@ -99,6 +101,9 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
   }
 
   const refreshSession = async () => {
+    const config = authConfigApi().then((value) => { authConfig.value = value }).catch(() => {
+      authConfig.value = { registrationEnabled: false, emailAvailable: false }
+    })
     try {
       const user = await meApi()
       loginUser.value = user
@@ -107,6 +112,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
       loginUser.value = null
       clearSessionUser()
     } finally {
+      await config
       authReady.value = true
     }
   }
@@ -123,6 +129,7 @@ export const useAuthState = ({ getUserStats }: UseAuthStateOptions) => {
     authError,
     authMessage,
     authReady,
+    authConfig,
     loginUser,
     canLogin,
     isLoggedIn,

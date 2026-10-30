@@ -8,9 +8,11 @@ it never deletes staff or superuser accounts.
 from pathlib import Path
 import re
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 from PIL import Image
 
 from community.models import Comment, Follow, Media, Post, PostInteraction, Profile
@@ -31,11 +33,13 @@ class Command(BaseCommand):
             '--reset', action='store_true',
             help='清理旧的本地演示账号和内容后再生成；不会删除 staff/superuser。',
         )
+        parser.add_argument(
+            '--disable-login', action='store_true',
+            help='保留展示内容，但将演示账号密码设为不可用；生产模式强制启用。',
+        )
 
+    @transaction.atomic
     def handle(self, *args, **options):
-        if options['reset']:
-            self._reset_demo_data()
-
         asset_dir = Path(__file__).resolve().parents[4] / 'demo_assets'
         image_names = [
             'mongolia-landscape.jpg', 'coffee-cup.jpg', 'street-craftsman.jpg',
@@ -43,11 +47,17 @@ class Command(BaseCommand):
         ]
         missing = [name for name in image_names if not (asset_dir / name).is_file()]
         if missing:
-            self.stderr.write(self.style.ERROR(
+            raise CommandError(
                 '缺少 demo_assets 图片：' + ', '.join(missing) +
                 '。请先获取 docs/demo-media-sources.md 中列出的公开素材。'
-            ))
-            return
+            )
+        if User.objects.filter(username__in=DEMO_USERNAMES).filter(
+            is_staff=True,
+        ).exists() or User.objects.filter(username__in=DEMO_USERNAMES, is_superuser=True).exists():
+            raise CommandError('演示用户名与管理员冲突；未修改任何账号或内容。')
+        if options['reset']:
+            self._reset_demo_data()
+        disable_login = options['disable_login'] or settings.PRODUCTION
 
         people = [
             ('demo_muyu', '木鱼', '记录城市和自然之间的慢节奏。'),
@@ -67,7 +77,10 @@ class Command(BaseCommand):
                 username=username,
                 defaults={'email': f'{username}@example.com'},
             )
-            if created:
+            if disable_login:
+                user.set_unusable_password()
+                user.save(update_fields=['password'])
+            elif created:
                 user.set_password('DemoGarden!2026')
                 user.save(update_fields=['password'])
             Profile.objects.update_or_create(
@@ -85,13 +98,14 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f'演示内容已更新：{len(users)} 位创作者、{len(posts)} 篇帖子、'
-            f'{len(assets)} 张公开图片。演示账号密码仍为 DemoGarden!2026。'
+            f'{len(assets)} 张公开图片。' +
+            ('演示账号登录已禁用。' if disable_login else '新建演示账号密码为 DemoGarden!2026，仅限本地；已有账号密码不变。')
         ))
 
     def _reset_demo_data(self):
         demo_users = User.objects.filter(username__in=DEMO_USERNAMES)
         legacy_users = User.objects.filter(username__regex=r'^(demo_[0-9]+|用户[0-9]+)$')
-        users = (demo_users | legacy_users).distinct()
+        users = (demo_users | legacy_users).filter(is_staff=False, is_superuser=False).distinct()
         Post.objects.filter(author__in=users).delete()
         users.delete()
         Media.objects.filter(owner__username__in=DEMO_USERNAMES).delete()

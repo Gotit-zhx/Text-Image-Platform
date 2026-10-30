@@ -15,16 +15,29 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.conf import settings
 from django.http import JsonResponse
 from django.urls import include, path
 
+def healthz(request):
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+    except Exception:
+        return JsonResponse({'status': 'unavailable'}, status=503)
+    return JsonResponse({'status': 'ok'})
+
+
 urlpatterns = [
+    path('healthz', healthz),
     path('', lambda request: JsonResponse({
         'message': 'Backend is running',
         'apiBase': '/api',
         'bootstrap': '/api/community/bootstrap',
     })),
-    path('admin/', admin.site.urls),
+    # Vue owns /admin/* in the same-origin deployment.
+    path('django-admin/' if settings.PRODUCTION else 'admin/', admin.site.urls),
     path('api/', include('community.urls')),
 ]
 

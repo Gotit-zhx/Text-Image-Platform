@@ -33,6 +33,7 @@ urlpatterns = [
     path('users/me/posts', content.user_posts),
     path('users/me/bookmarks', partial(content.user_posts, kind='bookmarks')),
     path('auth/csrf', accounts.csrf),
+    path('auth/config', accounts.auth_config),
     path('auth/verify-email', partial(accounts.consume_token, purpose='verify')),
     path('auth/resend-verification', partial(accounts.request_email, purpose='verify')),
     path('auth/password-reset', partial(accounts.request_email, purpose='reset')),

@@ -5,7 +5,7 @@ const emit = defineEmits<{
 	(e: 'login', payload: { account: string; password: string }): void
 }>()
 
-defineProps<{
+const props = defineProps<{
 	loading: boolean
 	error: string
 }>()
@@ -15,6 +15,7 @@ const password = ref('')
 const canSubmit = computed(() => account.value.trim() && password.value.trim())
 
 const handleSubmit = () => {
+	if (props.loading || !canSubmit.value) return
 	emit('login', { account: account.value.trim(), password: password.value })
 }
 </script>
@@ -40,8 +41,8 @@ const handleSubmit = () => {
 </template>
 
 <style scoped>
-.admin-login-wrap { min-height: 100vh; display: grid; place-items: center; background: #f4f6fb; }
-.admin-login-card { width: min(420px,94vw); border-radius: 12px; }
+.admin-login-wrap { min-height: 100dvh; display: grid; place-items: center; background: var(--bg); }
+.admin-login-card { width: min(420px,94vw); border-radius: var(--radius); }
 .login-btn { width: 100%; margin-top: 8px; }
 .error { margin-bottom: 8px; }
 </style>

@@ -23,5 +23,5 @@ defineProps<{
 </template>
 
 <style scoped>
-:deep(.el-card) { border-radius: 12px; }
+:deep(.el-card) { border-radius: var(--radius); }
 </style>

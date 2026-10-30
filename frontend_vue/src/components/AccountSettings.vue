@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import type { LoginUser } from '../types'
 import { emailActionApi, deactivateApi, changePasswordApi } from '../api/auth'
-const props = defineProps<{ user: LoginUser | null }>()
+const props = defineProps<{ user: LoginUser | null; emailAvailable: boolean }>()
 const emit = defineEmits<{ deactivated: [] }>()
 const password = ref(''),
   confirmation = ref(''),
@@ -29,7 +29,7 @@ const action = async (runner: () => Promise<unknown>, done: string) => {
 const verify = () =>
   action(
     () => emailActionApi(props.user?.email || '', 'verify'),
-    '请求已处理，请查看本地开发邮件输出。'
+    '如邮箱符合条件，验证邮件将发送到邮箱；本地开发环境请查看邮件输出。'
   )
 const change = () =>
   action(async () => {
@@ -60,7 +60,8 @@ const deactivate = () =>
     <p v-if="!user">请先登录后管理账号。</p>
     <template v-else>
       <p>{{ user.email }} · {{ user.emailVerified ? '已验证' : '待验证' }}</p>
-      <button v-if="!user.emailVerified" :disabled="pending" @click="verify">重发邮箱验证</button>
+      <button v-if="!user.emailVerified && emailAvailable" :disabled="pending" @click="verify">重发邮箱验证</button>
+      <p v-if="!user.emailVerified && !emailAvailable" class="muted">邮件服务暂未启用，请联系站点管理员验证邮箱。</p>
       <form @submit.prevent="change">
         <h2>修改密码</h2>
         <label

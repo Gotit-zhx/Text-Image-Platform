@@ -10,7 +10,7 @@
 
 AppShell 负责导航、顶搜、账号入口与 main landmark，不保存帖子副本。页面负责 query、请求、loading/error/分页与取消；业务 composable 以稳定 ID 更新实体与服务端权威计数。展示组件只接收 props 并发出动作；同一互动入口共用 pending key（entity+action），失败保留原状态。禁止在卡片内部另建 API 数据状态。
 
-基础组件：BaseButton/IconButton（loading+disabled+aria-label）、Avatar（URL失败→昵称首字，无空图）、FormField（label/错误关联）、Tag、Skeleton、EmptyState、ErrorState（真实重试）、ConfirmDialog、Toast。弹窗优先原生 dialog 或经测试的 Element Plus 对话框，不重复引入组件体系。后台保留 Element Plus 独立导航。
+基础组件：BaseButton/IconButton（loading+disabled+aria-label）、Avatar（URL失败→昵称首字，无空图）、FormField（label/错误关联）、Tag、Skeleton、EmptyState、ErrorState（真实重试）、ConfirmDialog、Toast。弹窗优先原生 dialog 或经测试的 Element Plus 对话框，不重复引入组件体系。后台保留 Element Plus 独立导航，复用社区的背景、文字、边框、主色与语义色 tokens；Element Plus 的主色明暗阶同步映射，按钮 hover/focus 不回退为默认蓝色。
 
 AppShell：桌面≥1280 固定224px侧栏，品牌图形用简洁叶形SVG+百草园字标；发现/关注/通知/收藏/主页/设置，发布主按钮，底部账号。768–1279收72px图标栏，aria-label和可见 tooltip；<768取消侧栏，顶搜和标题，底栏发现/关注/发布/通知/我的，安全区 env(safe-area-inset-bottom)。所有入口有实际路由或明确登录提示，无假统计。
 
@@ -61,7 +61,7 @@ AppShell：桌面≥1280 固定224px侧栏，品牌图形用简洁叶形SVG+百�
 
 ## 实现记录
 
-App.vue现只协调会话、实体更新、路由背景与公共动作，页面用defineAsyncComponent按需加载。FeedPage/SearchPage保留背景列表，详情关闭不重置分页；只有本次运行访问过的列表允许背景弹层，刷新/新窗口为完整页。Element Plus管理焦点约束、返回焦点、背景锁滚动与嵌套弹窗Esc。390px详情全屏；图片查看器有按钮缩放、左右键、切图滑动及双指缩放逻辑。
+App.vue现只协调会话、实体更新、路由背景与公共动作，页面用defineAsyncComponent按需加载。FeedPage/SearchPage保留背景列表，详情关闭不重置分页；首页首次挂载即登记列表来源，刷新首页后的首次点击仍打开详情弹层；只有本次运行访问过的列表允许背景弹层，详情页刷新或新窗口直达为完整页。Element Plus管理焦点约束、返回焦点、背景锁滚动与嵌套弹窗Esc。390px详情全屏；图片查看器有按钮缩放、左右键、切图滑动及双指缩放逻辑。
 
 导航与图标采用项目内SVG组件，去除旧emoji Logo、大渐变导航、装饰统计、静态mock和Vue调试浮层。正文/图片/作者都有真实缺失或失败状态；列表按DOM顺序CSS grid。时间显示月日，datetime保留ISO，避免关注页长时间戳挤压。
 

@@ -1,0 +1,5 @@
+# Small web runtime; optional ALS training still uses the root requirements.txt.
+Django==5.2.18
+pillow==13.0.0
+gunicorn==26.2.0
+sqlparse==0.6.0

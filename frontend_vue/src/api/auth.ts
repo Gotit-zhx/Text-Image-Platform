@@ -1,5 +1,7 @@
 import type { LoginUser, ProfileEditPayload, PasswordChangePayload } from '../types'
 import { apiRequest } from './client'
+export type AuthConfig = { registrationEnabled: boolean; emailAvailable: boolean }
+export const authConfigApi = () => apiRequest<AuthConfig>('/auth/config')
 export const loginApi = (account: string, password: string, _stats?: unknown) =>
   apiRequest<LoginUser>('/auth/login', {
     method: 'POST',

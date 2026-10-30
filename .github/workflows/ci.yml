@@ -49,3 +49,21 @@ jobs:
         run: |
           cd frontend_vue
           npm run build
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Initialize isolated Compose configuration
+        run: sh scripts/init-compose.sh
+      - name: Build and start demonstration stack
+        run: docker compose --env-file .env.compose up -d --build --wait --wait-timeout 120
+      - name: Check same-origin routes and application health
+        run: python3 scripts/check-compose.py
+      - name: Collect container logs
+        if: failure()
+        run: docker compose --env-file .env.compose logs --tail 100
+      - name: Stop CI stack
+        if: always()
+        run: docker compose --env-file .env.compose down

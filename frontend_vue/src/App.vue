@@ -55,6 +55,7 @@ const {
   authError,
   authMessage,
   authReady,
+  authConfig,
   loginUser,
   canLogin,
   isLoggedIn,
@@ -92,7 +93,8 @@ const sourceFocus = ref<HTMLElement | null>(null)
 let listVisited = false
 const isList = (name: unknown) => ['home', 'following', 'search'].includes(String(name))
 watch(
-  () => route.fullPath,
+  // The initial route starts at '/' without a name; wait for router resolution.
+  () => route.name ? route.fullPath : null,
   async (_, old) => {
     if (isList(route.name)) listVisited = true
     if (
@@ -108,7 +110,8 @@ watch(
     } else if (window.history.state.background && listVisited)
       background.value = String(window.history.state.background)
     else background.value = null
-  }
+  },
+  { immediate: true }
 )
 const upsertPosts = (incoming: Post[]) => {
   for (const post of incoming) {
@@ -261,7 +264,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <AdminConsole v-if="isAdmin" />
-  <AppShell v-else :user="loginUser" @login="openLoginModal" @logout="logout">
+  <AppShell v-else :user="loginUser" :registration-enabled="authConfig.registrationEnabled" @login="openLoginModal" @logout="logout">
     <UiState v-if="!authReady" kind="loading" />
     <template v-else>
       <FeedPage
@@ -350,12 +353,15 @@ onBeforeUnmount(() => {
         :key="`account:${editorOwner}`"
         v-if="route.name === 'settings-account'"
         :user="loginUser"
+        :email-available="authConfig.emailAvailable"
         @deactivated="logout"
       />
       <AuthTokenPage v-if="route.name === 'auth-token'" />
     </template>
     <LoginModal
       :visible="showLoginModal"
+      :registration-enabled="authConfig.registrationEnabled"
+      :email-available="authConfig.emailAvailable"
       :account="account"
       :password="password"
       :can-login="canLogin"

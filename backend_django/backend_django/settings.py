@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from urllib.parse import urlsplit
+from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -33,19 +35,26 @@ def _load_env_file(env_path: Path) -> None:
             os.environ.setdefault(key, value)
 
 
-_load_env_file(BASE_DIR.parent / '.env')
+if os.environ.get('DJANGO_ENV') != 'production':
+    _load_env_file(BASE_DIR.parent / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-please-change-me')
+def env_secret(name, default=''):
+    file_path = os.environ.get(name + '_FILE')
+    return Path(file_path).read_text().strip() if file_path else os.environ.get(name, default)
+
+
+PRODUCTION = os.environ.get('DJANGO_ENV', 'development') == 'production'
+SECRET_KEY = env_secret('DJANGO_SECRET_KEY', 'django-insecure-please-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = [host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
 
 
 # Application definition
@@ -64,6 +73,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'backend_django.middleware.RequestIdMiddleware',
+    'backend_django.middleware.TrustedProxyMiddleware',
     'backend_django.middleware.DevCorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -100,6 +110,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.environ.get('TIP_DATABASE_PATH', str(BASE_DIR / 'db.sqlite3')),
+        'OPTIONS': {'timeout': 20},
     }
 }
 
@@ -138,7 +149,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = Path(os.environ.get('DJANGO_STATIC_ROOT', str(BASE_DIR / 'staticfiles')))
 
 # 支持富文本多图（base64）场景，避免请求体过大导致发布/编辑失败。
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
@@ -155,8 +167,10 @@ EMAIL_FILE_PATH = os.environ.get('EMAIL_FILE_PATH', str(BASE_DIR / '.dev-mail'))
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_PASSWORD = env_secret('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'false').lower() == 'true'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'false').lower() == 'true'
+EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'baicaoyuan@localhost')
 FRONTEND_ORIGIN = os.environ.get('FRONTEND_ORIGIN', 'http://127.0.0.1:5173')
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:5173,http://localhost:5173').split(',')
@@ -164,3 +178,40 @@ CSRF_FAILURE_VIEW = 'community.accounts.csrf_failure'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = Path(os.environ.get('TIP_MEDIA_ROOT', str(BASE_DIR / 'media')))
+
+
+# Same-origin Caddy deployment. The app port is internal to Compose only.
+TIP_TRUST_PROXY = PRODUCTION
+TIP_ALLOW_REGISTRATION = os.environ.get('TIP_ALLOW_REGISTRATION', 'false' if PRODUCTION else 'true').lower() == 'true'
+TIP_EMAIL_AVAILABLE = DEBUG or EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
+if PRODUCTION:
+    origin = urlsplit(FRONTEND_ORIGIN)
+    if DEBUG or len(SECRET_KEY) < 50 or SECRET_KEY.startswith(('django-insecure-', 'your-secret')):
+        raise ImproperlyConfigured('Production requires DEBUG=false and a private secret of at least 50 characters.')
+    if not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS:
+        raise ImproperlyConfigured('Production requires explicit DJANGO_ALLOWED_HOSTS.')
+    if origin.scheme not in {'http', 'https'} or not origin.hostname or origin.username or origin.password or origin.path not in {'', '/'} or origin.query or origin.fragment:
+        raise ImproperlyConfigured('FRONTEND_ORIGIN must be a single HTTP(S) origin.')
+    if origin.scheme != 'https' and origin.hostname not in {'localhost', '127.0.0.1', '::1'}:
+        raise ImproperlyConfigured('Public deployment requires HTTPS. HTTP is for loopback previews only.')
+    if TIP_ALLOW_REGISTRATION and not TIP_EMAIL_AVAILABLE:
+        raise ImproperlyConfigured('Public registration requires SMTP; file/console mail is for local verification only.')
+    if TIP_EMAIL_AVAILABLE and (not EMAIL_HOST or DEFAULT_FROM_EMAIL.endswith('@localhost')):
+        raise ImproperlyConfigured('Configure a real SMTP host and sender before enabling email.')
+    if EMAIL_USE_SSL and EMAIL_USE_TLS:
+        raise ImproperlyConfigured('Use SMTP TLS or SSL, not both.')
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = origin.scheme == 'https'
+    SECURE_REDIRECT_EXEMPT = [r'^healthz$']
+    SESSION_COOKIE_SECURE = origin.scheme == 'https'
+    CSRF_COOKIE_SECURE = origin.scheme == 'https'
+    SECURE_HSTS_SECONDS = 3600 if origin.scheme == 'https' else 0
+    # Deliberately do not assert policy for unrelated subdomains or preload browsers.
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    SECURE_REFERRER_POLICY = 'no-referrer'
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'

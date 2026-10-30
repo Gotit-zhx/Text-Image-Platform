@@ -267,7 +267,7 @@ const sanitizedDetailHtml = computed(() =>
 </template>
 
 <style scoped>
-.panel { background: #fff; border: 1px solid #e6ebf2; border-radius: 10px; padding: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
 .title { font-size: 16px; font-weight: 700; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -275,11 +275,11 @@ const sanitizedDetailHtml = computed(() =>
 .detail-html {
 	margin-top: 12px;
 	padding: 12px;
-	background: #f7f9fc;
-	border: 1px solid #e6ebf2;
+	background: var(--bg);
+	border: 1px solid var(--border);
 	border-radius: 8px;
 	line-height: 1.75;
-	color: #2f3a52;
+	color: var(--text);
 	word-break: break-word;
 	overflow-wrap: anywhere;
 	overflow-x: auto;
@@ -314,15 +314,15 @@ const sanitizedDetailHtml = computed(() =>
 
 :deep(.detail-html th),
 :deep(.detail-html td) {
-	border: 1px solid #d9e1ef;
+	border: 1px solid var(--border);
 	padding: 8px;
 }
 
 :deep(.detail-html blockquote) {
 	margin: 8px 0;
 	padding: 8px 12px;
-	border-left: 3px solid #95b8ff;
-	background: #eef4ff;
-	color: #526287;
+	border-left: 3px solid var(--accent);
+	background: var(--bg);
+	color: var(--muted);
 }
 </style>

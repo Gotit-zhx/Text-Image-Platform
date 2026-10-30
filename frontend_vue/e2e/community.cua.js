@@ -1,6 +1,39 @@
 // Replay with the Codex browser runtime. Uses the real local UI and current session.
 // Call: await runCommunityAcceptance(tab, { origin, outputDir, fs })
 // The supplied fs is node:fs/promises from the CUA REPL; no browser/network bypass.
+// Regression: the initial '/' route can resolve without changing fullPath.
+export async function runInitialDetailAcceptance(tab, { origin }) {
+  const checks = []
+  await tab.goto(origin + '/')
+  await tab.reload()
+  await tab.playwright.locator('.post-card .content-link').first().waitFor({ state: 'visible' })
+  await tab.getAXState()
+  const count = await tab.playwright.locator('.post-card').count()
+  const link = tab.playwright.locator('.post-card .content-link').first()
+  const href = await link.getAttribute('href')
+  await link.click()
+  await tab.getAXState()
+  await tab.playwright.getByRole('heading', { name: '作品详情', exact: true }).waitFor({ state: 'visible' })
+  if (!(await tab.url()).endsWith(href)) throw new Error('详情 URL 未更新')
+  checks.push('刷新首页后首次点击打开背景详情弹层')
+  await tab.playwright.getByRole('button', { name: 'Close this dialog', exact: true }).click()
+  await tab.getAXState()
+  if (await tab.playwright.locator('.post-card').count() !== count) throw new Error('关闭详情丢失列表')
+  checks.push('关闭详情保留首页列表')
+  await tab.forward()
+  await tab.getAXState()
+  await tab.playwright.getByRole('heading', { name: '作品详情', exact: true }).waitFor({ state: 'visible' })
+  checks.push('浏览器前进恢复详情弹层')
+  await tab.reload()
+  await tab.getAXState()
+  await tab.playwright.getByRole('button', { name: '返回', exact: true }).waitFor({ state: 'visible' })
+  if (await tab.playwright.getByRole('heading', { name: '作品详情', exact: true }).count()) {
+    throw new Error('刷新详情错误复用了背景')
+  }
+  checks.push('详情刷新使用完整页面')
+  return checks
+}
+
 export async function runCommunityAcceptance(tab, { origin, outputDir, fs }) {
   const checks = []
   const assert = (condition, message) => {

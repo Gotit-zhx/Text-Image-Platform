@@ -15,6 +15,24 @@
   --space: 4px;
   --duration: 180ms;
   --el-color-primary: var(--accent);
+  --el-color-primary-dark-2: var(--accent-hover);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent), white 30%);
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent), white 50%);
+  --el-color-primary-light-7: color-mix(in srgb, var(--accent), white 70%);
+  --el-color-primary-light-8: color-mix(in srgb, var(--accent), white 80%);
+  --el-color-primary-light-9: color-mix(in srgb, var(--accent), white 90%);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--danger);
+  --el-color-error: var(--danger);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--muted);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-fill-color-light: var(--bg);
+  --el-menu-hover-bg-color: var(--bg);
   --el-border-radius-base: 10px;
   --el-font-family: inherit;
 }

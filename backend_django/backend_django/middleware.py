@@ -1,6 +1,8 @@
 import uuid
 
+from django.conf import settings
 from django.http import HttpResponse
+import ipaddress
 
 
 class RequestIdMiddleware:
@@ -19,6 +21,8 @@ class DevCorsMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if not settings.DEBUG:
+            return self.get_response(request)
         if request.method == 'OPTIONS':
             response = HttpResponse(status=204)
         else:
@@ -52,4 +56,18 @@ class CommunityWritePolicyMiddleware:
                 from community.social import write_denial
                 denial=write_denial(request)
                 if denial:return denial
+        return self.get_response(request)
+
+
+class TrustedProxyMiddleware:
+    """Caddy overwrites X-Real-IP; never enable on an exposed application port."""
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if getattr(settings, 'TIP_TRUST_PROXY', False):
+            try:
+                request.META['REMOTE_ADDR'] = str(ipaddress.ip_address(request.META.get('HTTP_X_REAL_IP', '')))
+            except ValueError:
+                pass
         return self.get_response(request)

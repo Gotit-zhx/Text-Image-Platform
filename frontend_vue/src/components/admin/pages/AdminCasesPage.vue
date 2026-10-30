@@ -102,4 +102,4 @@ onBeforeUnmount(()=>{version++;controller?.abort()})
     </el-dialog>
   </el-card>
 </template>
-<style scoped>.case-content{max-height:320px;overflow:auto;border:1px solid var(--border);padding:16px}.case-content :deep(img){max-width:100%;height:auto}label{display:block;margin:16px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f7f7f7;padding:16px}.el-table{margin:20px 0}</style>
+<style scoped>.case-content{max-height:320px;overflow:auto;border:1px solid var(--border);padding:16px}.case-content :deep(img){max-width:100%;height:auto}label{display:block;margin:16px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:16px}.el-table{margin:20px 0}</style>

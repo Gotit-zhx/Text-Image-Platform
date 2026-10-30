@@ -73,11 +73,20 @@ def issue_token(user, purpose):
 def csrf(request):
     return api_success(request, {'token': get_token(request)})
 
+@require_GET
+def auth_config(request):
+    return api_success(request, {
+        'registrationEnabled': settings.TIP_ALLOW_REGISTRATION,
+        'emailAvailable': settings.TIP_EMAIL_AVAILABLE,
+    })
+
 def csrf_failure(request, reason=''):
     return api_error(request, '请求验证已失效，请刷新后重新确认操作', status=403, code=40301)
 
 @require_POST
 def auth_register(request):
+    if not settings.TIP_ALLOW_REGISTRATION:
+        return api_error(request, '此演示站暂未开放注册，请使用站点管理员提供的账号。', 403)
     if limited(request, 'register', 10):
         return api_error(request, '请求过于频繁，请稍后再试', 429)
     data = body(request)
@@ -102,7 +111,12 @@ def auth_register(request):
         issue_token(user, 'verify')
     except Exception:
         return api_success(request, {'verificationRequired': True, 'message': '账号已创建，邮件输出失败，请重发验证链接。'}, status=201)
-    return api_success(request, {'verificationRequired': True, 'message': GENERIC_MAIL}, status=201)
+    return api_success(request, {'verificationRequired': True, 'message': mail_message()}, status=201)
+
+def mail_message():
+    if settings.PRODUCTION:
+        return '如果该邮箱符合条件，验证或重置邮件将发送到邮箱，请检查收件箱与垃圾邮件。'
+    return GENERIC_MAIL
 
 @require_POST
 def auth_login(request):
@@ -135,16 +149,18 @@ def users_me(request):
 
 @require_POST
 def request_email(request, purpose):
+    if not settings.TIP_EMAIL_AVAILABLE:
+        return api_error(request, '此演示站暂未启用邮件服务，请联系站点管理员。', 503)
     if limited(request, 'mail', 15):
         return api_error(request, '请求过于频繁，请稍后再试', 429)
     email = text(body(request), 'email').strip().lower()
     user = User.objects.filter(email__iexact=email, is_active=True).first()
-    if user and (purpose == 'reset' or not getattr(getattr(user, 'profile', None), 'email_verified', False)):
+    if user and user.has_usable_password() and (purpose == 'reset' or not getattr(getattr(user, 'profile', None), 'email_verified', False)):
         try:
             issue_token(user, purpose)
         except Exception:
             pass
-    return api_success(request, {'message': GENERIC_MAIL})
+    return api_success(request, {'message': mail_message()})
 
 @require_POST
 def consume_token(request, purpose):

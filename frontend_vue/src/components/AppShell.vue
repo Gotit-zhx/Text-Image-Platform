@@ -6,7 +6,7 @@ import type { LoginUser } from '../types'
 import AppIcon from './ui/AppIcon.vue'
 import BaseButton from './ui/BaseButton.vue'
 import UserAvatar from './ui/UserAvatar.vue'
-const props = defineProps<{ user: LoginUser | null }>()
+const props = defineProps<{ user: LoginUser | null; registrationEnabled: boolean }>()
 const emit = defineEmits<{ login: []; logout: [] }>()
 const router = useRouter(),
   route = useRoute(),
@@ -127,7 +127,7 @@ onBeforeUnmount(() => {
           >管理后台</RouterLink
         ></template
       ><BaseButton v-else @click="emit('login')"
-        ><AppIcon name="user" /><span>登录 / 注册</span></BaseButton
+        ><AppIcon name="user" /><span>{{ registrationEnabled ? '登录 / 注册' : '登录' }}</span></BaseButton
       >
     </div>
   </aside>

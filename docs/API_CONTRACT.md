@@ -1,24 +1,6 @@
 # 百草园 API 与业务契约
 
-日期：2026-10-22。本文记录 API 与业务规则；T00 现状映射保留为历史依据，下方接口已随 T01–T09 实现。内部实施与人工验收记录保留在本地，不随仓库发布；自动化检查方式见[开发与运行说明](DEVELOPMENT_GUIDE.md)。
-
-## 现状复核与阶段依赖
-
-| 阶段 | 直接依赖 | 可复用 | 缺失/待修复 |
-| --- | --- | --- | --- |
-| T01 | T00 | Django User、Session、密码验证器、登录弹窗 | 请求内管理员重置、自动注册、默认密码、邮箱重复、公开隐私、CSRF、邮件/改密/注销 |
-| T02 | T00/T01 | HomePostCard、Element Plus、路由 | 统一 tokens/AppShell、卡片/时间线、页面拆分 |
-| T03 | T01/T02 | Post、分页 search/recommend、编辑接口 | GET 详情、软删除、摘要 DTO、统一可见性、服务端净化、取消全站 bootstrap 依赖 |
-| T04 | T03 | Quill、发布/编辑 | Media、上传、草稿、幂等提交、成功后清空 |
-| T05 | T03/T04 | /detail/:id、DOMPurify | 路由背景弹层、图片查看器、焦点/滚动恢复 |
-| T06 | T03/T05 | Comment、CommentLike | 单帖/本人分页、root/parent/replyTo、占位、服务端排序 |
-| T07 | T03/T04/T06 | Follow、公开资料路由、搜索 | 稳定主页、独立关系/收藏分页、用户搜索、拉黑/屏蔽 |
-| T08 | T01/T03/T06/T07 | AuditLog 历史通知、互动关系 | Notification、未读/已读、事件去重、服务端计数校正 |
-| T09 | T03/T06/T07/T08 | 审核接口、组、审计 | 举报/申诉、角色授权、禁言封禁、最后超管保护、活跃口径 |
-| T10 | T02–T09 | 各页组件 | 四断点实际视觉检查、键盘/IME、请求取消、统一状态 |
-| T11 | T01–T10 | Django 13 项测试、npm test | F01–F08 隔离业务与浏览器验证、迁移演练 |
-
-源码证据：community/views.py 的 _ensure_default_admin 被 bootstrap/recommend/admin login 调用；register 接受缺密码；login 自动创建邮箱账号；公开 profile 返回本人 DTO；写接口 csrf_exempt。posts/:id 当前仅 PUT；评论取全站 50 条且不关联帖子审核过滤；fans 截断 30；评论总数被前端局部集合覆盖。发布和评论组件在服务端确认前清空。审核靠 is_staff，活跃统计按帖子日期。审查中的 ALS 重载问题在 trainer.py 仍读取未恢复的 train_mat；本轮规则回退可交付，不要求修复推荐训练基础设施。基线后端 13 项测试通过，仅说明旧测试通过。
+本文记录当前 API 与业务规则。内部实施与人工验收记录保留在本地，不随仓库发布；自动化检查方式见[开发与运行说明](DEVELOPMENT_GUIDE.md)。
 
 ## 传输、错误与分页
 
@@ -32,40 +14,43 @@
 
 ## 接口表
 
-下表按最终路由核对；bootstrap仅保留旧客户端兼容。
+下表按当前路由核对；bootstrap 仅保留旧客户端兼容。
 
-| 方法 /api 路径 | T00 状态 | 权限/用途 | 阶段 |
-| --- | --- | --- | --- |
-| POST /auth/register, /auth/login, /auth/logout | 已实现，保留兼容 | 注册/登录/退出；注册改为等待验证 | T01 |
-| GET /users/me; PUT /users/me/profile | 已实现，保留兼容 | 本人 DTO/资料 | T01/T07 |
-| GET /auth/csrf | 已实现 | 匿名取得 CSRF | T01 |
-| POST /auth/verify-email, /auth/resend-verification | 已实现 | token、重发 | T01 |
-| POST /auth/password-reset, /auth/password-reset/confirm | 已实现 | 通用发送响应、token+新密码 | T01 |
-| POST /users/me/password, /users/me/deactivate | 已实现 | 旧密码；注销二次确认 | T01 |
-| GET /community/bootstrap | 旧兼容，新页面不依赖 | 旧初始化快照兼容 | T03 |
-| GET /community/search, /community/recommend, /community/recommend/status | 已实现，保留兼容 | 分页发现/搜索/推荐状态；搜索扩展 type=users/tag | T03/T07 |
-| POST /community/posts; PUT /community/posts/:id | 已实现，保留兼容 | 作者发布/编辑 | T03/T04 |
-| GET/DELETE /community/posts/:id | 已实现 | 公开详情/本人软删 | T03 |
-| GET /community/users/:id/profile | 已实现，保留兼容 | 公开资料，剔除隐私 | T01/T07 |
-| GET /community/users/:id/posts, /followers, /following | 已实现 | 公开作品和关系完整分页 | T03/T07 |
-| GET /users/me/posts, /bookmarks, /comments | 已实现 | 本人创作/私有收藏/历史 | T03/T06/T07 |
-| POST /community/posts/:id/comments | 已实现，保留兼容 | 公开目标、回复关系、幂等键 | T06 |
-| GET /community/posts/:id/comments | 已实现 | sort=latest/hot，按根分页 | T06 |
-| GET /community/comments/:id/replies, /community/comments/:id/detail | 已实现 | 同根回复完整分页 | T06 |
-| POST /community/comments/:id/like; DELETE /community/comments/:id | 已实现，保留兼容 | 可见评论点赞/本人软删 | T06 |
-| POST /community/posts/:id/like, /favorite, /read, /share | 已实现，保留兼容 | true/false 为期望状态，返回权威计数 | T03/T08 |
-| POST /community/authors/:id/follow | 已实现，保留兼容 | 期望状态、禁止自己/双向拉黑 | T07 |
-| POST /media; DELETE /media/:id | 已实现 | multipart、本人未引用资源 | T04 |
-| GET/POST /drafts; GET/PUT/DELETE /drafts/:id | 已实现 | 仅本人，自动保存/继续编辑 | T04 |
-| GET/POST /users/me/blocks, /users/me/mutes; DELETE /users/me/blocks/:id, /users/me/mutes/:id | 已实现 | 本人关系管理 | T07 |
-| GET /notifications, /notifications/unread; POST /notifications/:id/read, /notifications/read-all | 已实现 | 本人、分类、已读 | T08 |
-| POST/GET /reports; POST/GET /appeals | 已实现 | 举报/申诉及本人记录 | T09 |
-| POST /admin/auth/login, /logout; GET /admin/auth/me | 已实现，保留兼容 | 管理会话；须校验凭证版本 | T01/T09 |
-| GET /admin/dashboard/overview | 已实现，保留兼容 | 移除错误活跃统计 | T09 |
-| GET /admin/moderation/posts, /posts/:id; POST /posts/:id/review, /posts/batch-review | 已实现，保留兼容 | 队列、详情、审核 | T09 |
-| GET /admin/moderation/comments; POST /comments/:id/hide, /restore; DELETE /comments/:id | 已实现，保留兼容 | 评论治理 | T06/T09 |
-| GET /admin/users; PUT /admin/users/:id/roles; GET /admin/audit/logs | 已实现，保留兼容 | 用户、仅超管改角色、审计 | T09 |
-| GET /admin/reports, /admin/appeals; POST /admin/reports/:id/resolve, /admin/appeals/:id/resolve, /admin/users/:id/status | 已实现 | 处置与反馈、禁言/封禁/解封 | T09 |
+| 方法 /api 路径 | 状态 | 权限/用途 |
+| --- | --- | --- |
+| POST /auth/register, /auth/login, /auth/logout | 已实现，保留兼容 | 注册/登录/退出；注册改为等待验证 |
+| GET /users/me; PUT /users/me/profile | 已实现，保留兼容 | 本人 DTO/资料 |
+| GET /auth/csrf | 已实现 | 匿名取得 CSRF |
+| GET /auth/config | 已实现 | 匿名读取注册与邮件入口策略 |
+| POST /auth/verify-email, /auth/resend-verification | 已实现 | token、重发 |
+| POST /auth/password-reset, /auth/password-reset/confirm | 已实现 | 通用发送响应、token+新密码 |
+| POST /users/me/password, /users/me/deactivate | 已实现 | 旧密码；注销二次确认 |
+| GET /community/bootstrap | 旧兼容，新页面不依赖 | 旧初始化快照兼容 |
+| GET /community/search, /community/recommend, /community/recommend/status | 已实现，保留兼容 | 分页发现/搜索/推荐状态；搜索扩展 type=users/tag |
+| POST /community/posts; PUT /community/posts/:id | 已实现，保留兼容 | 作者发布/编辑 |
+| GET/DELETE /community/posts/:id | 已实现 | 公开详情/本人软删 |
+| GET /community/users/:id/profile | 已实现，保留兼容 | 公开资料，剔除隐私 |
+| GET /community/users/:id/posts, /followers, /following | 已实现 | 公开作品和关系完整分页 |
+| GET /users/me/posts, /bookmarks, /comments | 已实现 | 本人创作/私有收藏/历史 |
+| POST /community/posts/:id/comments | 已实现，保留兼容 | 公开目标、回复关系、幂等键 |
+| GET /community/posts/:id/comments | 已实现 | sort=latest/hot，按根分页 |
+| GET /community/comments/:id/replies, /community/comments/:id/detail | 已实现 | 同根回复完整分页 |
+| POST /community/comments/:id/like; DELETE /community/comments/:id | 已实现，保留兼容 | 可见评论点赞/本人软删 |
+| POST /community/posts/:id/like, /favorite, /read, /share | 已实现，保留兼容 | true/false 为期望状态，返回权威计数 |
+| POST /community/authors/:id/follow | 已实现，保留兼容 | 期望状态、禁止自己/双向拉黑 |
+| POST /media; DELETE /media/:id | 已实现 | multipart、本人未引用资源 |
+| GET/POST /drafts; GET/PUT/DELETE /drafts/:id | 已实现 | 仅本人，自动保存/继续编辑 |
+| GET/POST /users/me/blocks, /users/me/mutes; DELETE /users/me/blocks/:id, /users/me/mutes/:id | 已实现 | 本人关系管理 |
+| GET /notifications, /notifications/unread; POST /notifications/:id/read, /notifications/read-all | 已实现 | 本人、分类、已读 |
+| POST/GET /reports; POST/GET /appeals | 已实现 | 举报/申诉及本人记录 |
+| POST /admin/auth/login, /logout; GET /admin/auth/me | 已实现，保留兼容 | 管理会话；须校验凭证版本 |
+| GET /admin/dashboard/overview | 已实现，保留兼容 | 移除错误活跃统计 |
+| GET /admin/moderation/posts, /posts/:id; POST /posts/:id/review, /posts/batch-review | 已实现，保留兼容 | 队列、详情、审核 |
+| GET /admin/moderation/comments; POST /comments/:id/hide, /restore; DELETE /comments/:id | 已实现，保留兼容 | 评论治理 |
+| GET /admin/users; PUT /admin/users/:id/roles; GET /admin/audit/logs | 已实现，保留兼容 | 用户、仅超管改角色、审计 |
+| GET /admin/reports, /admin/appeals; POST /admin/reports/:id/resolve, /admin/appeals/:id/resolve, /admin/users/:id/status | 已实现 | 处置与反馈、禁言/封禁/解封 |
+
+生产部署通过 `GET /auth/config` 返回 `registrationEnabled` 与 `emailAvailable`。关闭注册时注册接口返回 403；邮件不可用时重发验证及找回密码返回 503，前端隐藏相应入口并解释原因。生产模式示例账号使用不可用密码，找回密码不会为其重新启用登录；部署策略见 [部署指南](DEPLOYMENT.md)。
 
 ## DTO 和请求示例（当前形态）
 

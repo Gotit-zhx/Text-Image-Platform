@@ -17,7 +17,7 @@
 
 ## 界面截图
 
-上面的截图展示桌面端发现页。演示内容由 `seed_demo_data --reset` 生成，图片来自公开许可素材，用户、标题、正文和互动均为本地演示数据。
+上面的截图展示桌面端发现页。演示内容由 `seed_demo_data` 生成，图片来自公开许可素材，用户、标题、正文和互动均为本地演示数据。
 
 ## 技术栈
 
@@ -37,6 +37,9 @@ Text-Image-Platform/
 ├── frontend_vue/         # Vue 单页应用
 ├── recommend_system/     # 推荐数据处理与离线训练代码
 ├── demo_assets/          # 可复现展示内容的公开许可图片
+├── deploy/               # Dockerfile、Caddy、Gunicorn 和容器入口
+├── scripts/              # Compose 初始化、备份和只读健康检查
+├── compose.yaml          # 个人演示站容器编排
 ├── docs/                 # 公开文档、API 契约、UI 规范及桌面截图
 │   ├── assets/readme/     # README 使用的桌面端截图
 │   └── local/            # 本地开发过程记录（Git 忽略，不随克隆提供）
@@ -46,6 +49,26 @@ Text-Image-Platform/
 ├── run_project.sh        # 本地启动脚本
 └── .env.example          # 环境变量模板
 ```
+
+## Docker Compose 部署
+
+需要 Docker Engine 与 Docker Compose v2。在项目根目录执行：
+
+```bash
+sh scripts/init-compose.sh
+docker compose --env-file .env.compose up -d --build --wait --wait-timeout 120
+python3 scripts/check-compose.py
+```
+
+打开 <http://localhost:8080>。Caddy 提供前端和同源 API，Gunicorn 运行 Django，数据库、媒体与证书使用持久卷；默认只监听本机。Web 镜像不安装推荐训练依赖，也不会自动导入或清理业务数据。
+
+可选导入展示内容：
+
+```bash
+docker compose --env-file .env.compose exec app python manage.py seed_demo_data --disable-login
+```
+
+生产模式强制禁用示例账号密码登录，默认关闭注册与邮件入口。公网域名、HTTPS、管理员创建、SMTP、备份恢复和更新步骤见 [Docker Compose 部署指南](docs/DEPLOYMENT.md)。云端证书与真实邮件送达需在自己的服务器和邮箱上验收。
 
 ## 本地运行
 
@@ -77,10 +100,10 @@ bash run_project.sh --install
 
 ```bash
 cd backend_django
-../.venv/bin/python manage.py seed_demo_data --reset
+../.venv/bin/python manage.py seed_demo_data
 ```
 
-该命令只清理旧的本地演示账号和帖子，保留 staff/superuser，然后导入 `demo_assets/` 中的公开图片并生成适合展示的图文、评论、点赞、收藏和关注关系。演示账号密码为 `DemoGarden!2026`，不要在生产环境使用。
+该命令导入 `demo_assets/` 中的公开图片并生成图文、评论、点赞、收藏和关注关系，重复执行不会新增相同帖子。仅在确认要重建本地演示内容时添加 `--reset`，它会清理演示账号及其内容并保留 staff/superuser。新建本地演示账号密码为 `DemoGarden!2026`；生产模式禁用示例账号登录，已有账号密码不会被普通导入重置。
 
 ### 分别启动前后端
 
@@ -120,12 +143,13 @@ npm ci
 npm test
 ```
 
-GitHub Actions 会安装依赖、执行数据库迁移、运行 Django 测试并构建前端。
+GitHub Actions 会安装依赖、执行数据库迁移、运行 Django 测试、构建前端，并构建启动 Compose 栈以检查健康状态与同源路由。
 
 ## 文档
 
 - [文档索引与目录约定](docs/README.md)
 - [快速开始](docs/QUICK_START.md)
+- [Docker Compose 部署](docs/DEPLOYMENT.md)
 - [开发与运行说明](docs/DEVELOPMENT_GUIDE.md)
 - [项目概览](docs/PROJECT_OVERVIEW.md)
 - [详细项目说明](docs/PROJECT_DETAILS.md)
@@ -137,4 +161,4 @@ GitHub Actions 会安装依赖、执行数据库迁移、运行 Django 测试并
 
 ## 项目状态与范围
 
-项目处于持续开发阶段。当前仓库包含社区业务、治理流程和自动化检查；完整人工验收、实体手机与辅助技术检查仍在进行。推荐模型在线化、生产部署与并发容量也仍在迭代。
+项目处于持续开发阶段。当前仓库包含社区业务、治理流程、Compose 部署配置和自动化检查；完整人工验收、实体手机与辅助技术检查仍在进行。推荐模型在线化、公网部署验收与并发容量验证也仍在迭代。

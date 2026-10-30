@@ -269,15 +269,15 @@ watch(
 </template>
 
 <style scoped>
-.admin-layout { min-height: 100vh; background: #f4f6fb; }
-.sidebar { background: #17223b; color: #fff; }
-.brand { color: #fff; font-size: 20px; font-weight: 700; padding: 18px 16px 12px; }
+.admin-layout { min-height: 100dvh; background: var(--bg); }
+.sidebar { background: var(--surface); color: var(--text); border-right: 1px solid var(--border); }
+.brand { color: var(--text); font-size: 20px; font-weight: 700; padding: 18px 16px 12px; }
 .menu { border-right: none; background: transparent; }
-.menu :deep(.el-menu-item) { color: #c9d3ea; }
-.menu :deep(.el-menu-item.is-active) { color: #fff; background: #2f88ff; }
-.toolbar { background: #fff; border-bottom: 1px solid #e7ecf3; display: flex; align-items: center; justify-content: space-between; }
-.operator { font-size: 14px; color: #30384a; }
-.content { padding: 16px; }
+.menu :deep(.el-menu-item) { color: var(--text); }
+.menu :deep(.el-menu-item.is-active) { color: var(--surface); background: var(--accent); }
+.toolbar { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.operator { font-size: 14px; color: var(--text); }
+.content { padding: 16px; min-width: 0; }
 .error { margin-bottom: 12px; }
 @media(max-width:767px){.admin-layout{flex-direction:column}.sidebar{width:100%!important}.menu{display:flex;overflow:auto}.brand{font-size:16px;padding:8px}.menu :deep(.el-menu-item){padding:0 12px}.content{padding:8px;min-width:0}.toolbar{height:auto;min-height:64px;gap:8px;flex-wrap:wrap}.operator{font-size:12px}}
 </style>
