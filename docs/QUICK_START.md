@@ -3,19 +3,21 @@
 ## 环境要求
 
 - Python 3.11
-- Node.js 20+
+- Node.js 20.19+（或 22.12+）
 - npm 10+
 
 ## 1. 克隆仓库
 
 ```bash
-git clone <your-repo-url>
-cd tip
+git clone https://github.com/Gotit-zhx/Text-Image-Platform.git
+cd Text-Image-Platform
 ```
 
 ## 2. 配置环境变量
 
 ```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 cp .env.example .env
 ```
 
@@ -38,8 +40,7 @@ bash run_project.sh --install
 
 ```bash
 cd backend_django
-python3 -m venv .venv
-source .venv/bin/activate
+source ../.venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver 127.0.0.1:8000
@@ -49,7 +50,7 @@ python manage.py runserver 127.0.0.1:8000
 
 ```bash
 cd frontend_vue
-npm install
+npm ci
 npm run dev
 ```
 
@@ -59,14 +60,15 @@ npm run dev
 
 ```bash
 cd backend_django
-python manage.py seed_demo_data --reset
+../.venv/bin/python manage.py seed_demo_data
 ```
 
 说明：
 
 - 会生成 9 位创作者、12 篇图文帖子，以及评论、点赞、收藏和关注关系
 - 演示图片来自 `demo_assets/` 中的公开 CC0 素材，来源与许可见 [`docs/demo-media-sources.md`](demo-media-sources.md)
-- `--reset` 只清理旧的本地演示账号和内容，保留 staff/superuser；演示账号密码为 `DemoGarden!2026`，不要在生产环境使用
+- 普通导入不会新增相同帖子或重置已有账号密码；仅在明确需要重建时添加 `--reset`，该选项会清理演示账号及其内容，保留 staff/superuser
+- 新建本地演示账号密码为 `DemoGarden!2026`；生产模式强制禁用示例账号密码登录，不要用示例账号承载真实数据
 
 ## 6. 创建后台管理员
 
