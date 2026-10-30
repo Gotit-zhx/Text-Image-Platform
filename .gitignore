@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 *.egg
 *.sqlite3
+*.sqlite3-*
 .env
 venv/
 .venv/
@@ -25,10 +26,21 @@ frontend_vue/.env
 
 # IDE
 .vscode/
+# The frontend keeps a shared extension list; its own .gitignore filters settings.
+!frontend_vue/.vscode/
 .DS_Store
 
 # Logs
 .run_logs/
+
+# Local test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+playwright-report/
+test-results/
 
 # Recommendation cache
 recommend_system/cache/
@@ -41,9 +53,25 @@ recommend_system/cache/
 backend_django/.dev-mail/
 
 # Internal planning, implementation, and acceptance notes stay local
+# Put new working notes here; keep public guides and specifications in docs/.
+/docs/local/
+# Legacy locations are kept so existing local references continue to work.
 docs/AI_DEVELOPMENT_PROMPTS.md
 docs/BUSINESS_UI_TODO.md
 docs/ACCEPTANCE_SCENARIOS.md
 docs/HUMAN_ACCEPTANCE.md
 docs/IMPLEMENTATION_REPORT.md
 docs/PLATFORM_READINESS_AUDIT.md
+# Also exclude future process documents, including those in docs subdirectories.
+/docs/**/*_TODO.md
+/docs/**/*_PROMPTS.md
+/docs/**/*_AUDIT.md
+/docs/**/*_ACCEPTANCE.md
+/docs/**/*_REPORT.md
+
+# Deployment secrets and local stack configuration
+.env.compose
+.env.compose.*
+!.env.compose.example
+.secrets/
+backups/

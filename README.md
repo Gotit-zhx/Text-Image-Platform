@@ -36,8 +36,12 @@ Text-Image-Platform/
 ├── backend_django/       # Django API、社区业务、管理命令和迁移
 ├── frontend_vue/         # Vue 单页应用
 ├── recommend_system/     # 推荐数据处理与离线训练代码
-├── docs/                 # 项目说明、开发指南、API 契约和 UI 规范
+├── demo_assets/          # 可复现展示内容的公开许可图片
+├── docs/                 # 公开文档、API 契约、UI 规范及桌面截图
+│   ├── assets/readme/    # README 使用的桌面端截图
+│   └── local/            # 本地开发过程记录（Git 忽略，不随克隆提供）
 ├── .github/workflows/    # CI 工作流
+├── .gitignore            # 本地配置、运行产物和过程文档排除规则
 ├── requirements.txt      # Python 依赖
 ├── run_project.sh        # 本地启动脚本
 └── .env.example          # 环境变量模板
@@ -120,6 +124,7 @@ GitHub Actions 会安装依赖、执行数据库迁移、运行 Django 测试并
 
 ## 文档
 
+- [文档索引与目录约定](docs/README.md)
 - [快速开始](docs/QUICK_START.md)
 - [开发与运行说明](docs/DEVELOPMENT_GUIDE.md)
 - [项目概览](docs/PROJECT_OVERVIEW.md)
@@ -127,6 +132,8 @@ GitHub Actions 会安装依赖、执行数据库迁移、运行 Django 测试并
 - [API 契约](docs/API_CONTRACT.md)
 - [UI 规范](docs/UI_SPEC.md)
 - [演示图片来源与许可](docs/demo-media-sources.md)
+
+仓库保留运行、使用和维护所需的公开文档。开发提示词、任务清单、实施记录和人工验收记录保留在本地；新增过程文档统一放入 `docs/local/`，由 `.gitignore` 排除。数据库、上传文件、开发邮件、日志、环境密钥和测试产物同样不提交。自动化测试源码、数据库迁移、依赖锁文件及公开图片许可说明继续纳入版本控制。
 
 ## 项目状态与范围
 

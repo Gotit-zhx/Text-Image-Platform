@@ -1,6 +1,6 @@
 # 百草园 UI 实施规范
 
-2026-10-22，已随本轮实现统一tokens/AppShell、发现卡片、关注时间线和独立页面；实际截图和未验证项见IMPLEMENTATION_REPORT。API 与业务规则见 API_CONTRACT.md，验收见 ACCEPTANCE_SCENARIOS.md。
+2026-10-22，已随本轮实现统一 tokens/AppShell、发现卡片、关注时间线和独立页面。API 与业务规则见 [API 契约](API_CONTRACT.md)，桌面端截图及项目状态见[项目首页](../README.md)。内部实施与人工验收记录保留在本地，不随仓库发布。
 
 ## 设计变量
 
