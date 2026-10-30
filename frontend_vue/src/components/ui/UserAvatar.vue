@@ -26,8 +26,8 @@ watch(
   border-radius: 50%;
   flex-shrink: 0;
   overflow: hidden;
-  background: #eee7dc;
-  color: #685d51;
+  background: var(--avatar-bg);
+  color: var(--avatar-text);
   font-size: 13px;
   font-weight: 600;
 }

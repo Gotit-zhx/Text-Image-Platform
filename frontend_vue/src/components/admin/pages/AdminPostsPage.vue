@@ -252,7 +252,7 @@ const sanitizedDetailHtml = computed(() =>
 			</template>
 		</el-dialog>
 
-		<el-drawer v-model="detailDrawerVisible" title="帖子详情" size="48%" destroy-on-close>
+		<el-drawer class="post-detail-drawer" v-model="detailDrawerVisible" title="帖子详情" size="48%" destroy-on-close>
 			<template v-if="props.currentDetail">
 				<h3>{{ props.currentDetail.title }}</h3>
 				<p><strong>作者：</strong>{{ props.currentDetail.author }}</p>
@@ -267,10 +267,12 @@ const sanitizedDetailHtml = computed(() =>
 </template>
 
 <style scoped>
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.panel :deep(.el-card__body) { padding: 16px; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
 .title { font-size: 16px; font-weight: 700; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filters :deep(.el-button + .el-button) { margin-left: 0; }
 .pager { display: flex; justify-content: flex-end; margin-top: 12px; }
 .detail-html {
 	margin-top: 12px;
@@ -324,5 +326,8 @@ const sanitizedDetailHtml = computed(() =>
 	border-left: 3px solid var(--accent);
 	background: var(--bg);
 	color: var(--muted);
+}
+@media (max-width: 767px) {
+  :global(.post-detail-drawer) { width: 100% !important; }
 }
 </style>

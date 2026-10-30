@@ -31,5 +31,5 @@ const emit = defineEmits<{
 <style scoped>
 .admin-pagination { flex-wrap: wrap; justify-content: flex-end; gap: 8px; white-space: normal; }
 .page-size { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-select { min-height: 36px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+select { min-height: 36px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
 </style>

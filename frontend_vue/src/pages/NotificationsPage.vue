@@ -231,7 +231,7 @@ nav button {
   color: var(--muted);
 }
 .unread {
-  background: #fff1ed;
+  background: var(--accent-soft);
   border-radius: 10px;
 }
 .notice + button {

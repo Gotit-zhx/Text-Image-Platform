@@ -22,7 +22,7 @@ const handleSubmit = () => {
 
 <template>
 	<div class="admin-login-wrap">
-		<el-card class="admin-login-card" shadow="hover">
+		<el-card class="admin-login-card" shadow="never">
 			<h2>后台管理登录</h2>
 			<el-form label-position="top">
 				<el-form-item label="账号">

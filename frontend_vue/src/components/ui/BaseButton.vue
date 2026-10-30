@@ -39,10 +39,10 @@ withDefaults(
   border-color: var(--accent);
   color: white;
 }
-.primary:hover {
+.primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-.secondary:hover {
+.secondary:hover:not(:disabled) {
   background: var(--bg);
 }
 .danger {

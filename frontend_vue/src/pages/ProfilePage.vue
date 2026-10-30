@@ -487,7 +487,9 @@ time {
   min-height: 44px;
   border: 1px solid var(--border);
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
 }
 @media (max-width: 767px) {
   .profile-header {

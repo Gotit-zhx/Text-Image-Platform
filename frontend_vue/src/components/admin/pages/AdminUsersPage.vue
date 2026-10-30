@@ -71,7 +71,7 @@ const handleReset = () => {
 				</template>
 			</el-table-column>
 		</el-table>
-    <el-dialog :model-value="!!target" :title="action==='roles'?'调整角色':'账号处置'" width="min(500px,94vw)" @close="target=undefined"><p>{{target?.name}}</p><template v-if="action==='roles'"><el-checkbox-group v-model="roleList"><el-checkbox value="content_moderator">内容审核员</el-checkbox><el-checkbox value="operations">运营</el-checkbox><el-checkbox value="auditor">只读审计员</el-checkbox></el-checkbox-group><p>超级管理员由显式管理命令授权；最后一个超级管理员受保护。</p></template><template v-else><el-select v-model="action"><el-option label="禁言7天" value="mute"/><el-option label="封禁" value="ban"/><el-option label="解除限制" value="restore"/></el-select><el-input v-model="reason" type="textarea" maxlength="500" placeholder="处理原因"/></template><el-alert v-if="error" :title="error" type="error"/><el-button type="primary" :loading="pending" :disabled="action!=='roles'&&!reason.trim()" @click="action==='roles'?submitRoles():submitStatus()">确认操作</el-button></el-dialog>
+    <el-dialog class="user-dialog" :model-value="!!target" :title="action==='roles'?'调整角色':'账号处置'" width="min(500px,94vw)" @close="target=undefined"><p>{{target?.name}}</p><template v-if="action==='roles'"><el-checkbox-group v-model="roleList"><el-checkbox value="content_moderator">内容审核员</el-checkbox><el-checkbox value="operations">运营</el-checkbox><el-checkbox value="auditor">只读审计员</el-checkbox></el-checkbox-group><p>超级管理员由显式管理命令授权；最后一个超级管理员受保护。</p></template><template v-else><el-select v-model="action"><el-option label="禁言7天" value="mute"/><el-option label="封禁" value="ban"/><el-option label="解除限制" value="restore"/></el-select><el-input v-model="reason" type="textarea" maxlength="500" placeholder="处理原因"/></template><el-alert v-if="error" :title="error" type="error"/><el-button type="primary" :loading="pending" :disabled="action!=='roles'&&!reason.trim()" @click="action==='roles'?submitRoles():submitStatus()">确认操作</el-button></el-dialog>
 		<div class="pager">
 			<AdminPagination
 				background
@@ -87,9 +87,14 @@ const handleReset = () => {
 </template>
 
 <style scoped>
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.panel :deep(.el-card__body) { padding: 16px; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
 .title { font-size: 16px; font-weight: 700; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filters :deep(.el-button + .el-button) { margin-left: 0; }
 .pager { display: flex; justify-content: flex-end; margin-top: 12px; }
+:global(.user-dialog .el-dialog__body) { display: grid; gap: 16px; }
+:global(.user-dialog .el-dialog__body > p) { margin: 0; }
+:global(.user-dialog .el-dialog__body > .el-button) { justify-self: start; }
 </style>

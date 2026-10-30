@@ -279,5 +279,10 @@ watch(
 .operator { font-size: 14px; color: var(--text); }
 .content { padding: 16px; min-width: 0; }
 .error { margin-bottom: 12px; }
+@media (max-width: 1023px) {
+  /* Element Plus marks sticky table cells important; keep narrow tables scrollable. */
+  .admin-layout :deep(.el-table__cell.el-table-fixed-column--right) { position: static !important; }
+  .admin-layout :deep(.el-table-fixed-column--right::before) { box-shadow: none; }
+}
 @media(max-width:767px){.admin-layout{flex-direction:column}.sidebar{width:100%!important}.menu{display:flex;overflow:auto}.brand{font-size:16px;padding:8px}.menu :deep(.el-menu-item){padding:0 12px}.content{padding:8px;min-width:0}.toolbar{height:auto;min-height:64px;gap:8px;flex-wrap:wrap}.operator{font-size:12px}}
 </style>

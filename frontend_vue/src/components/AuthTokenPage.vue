@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import BaseButton from './ui/BaseButton.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { consumeTokenApi } from '../api/auth'
 const route = useRoute(),
@@ -58,11 +59,11 @@ const submit = async () => {
       ></template>
       <p v-else>确认使用此链接验证邮箱。链接24小时有效且仅可使用一次。</p>
       <p v-if="error" role="alert">{{ error }}</p>
-      <button :disabled="pending">
+      <BaseButton type="submit" variant="primary" :pending="pending">
         {{ pending ? '处理中…' : reset ? '确认重置' : '确认验证邮箱' }}
-      </button>
+      </BaseButton>
     </form>
-    <RouterLink to="/">返回百草园</RouterLink>
+    <RouterLink to="/" class="text-button">返回百草园</RouterLink>
   </main>
 </template>
 <style scoped>
@@ -70,8 +71,9 @@ const submit = async () => {
   max-width: 560px;
   margin: 32px auto;
   padding: 24px;
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 label {
   display: block;
@@ -82,13 +84,15 @@ input {
   min-height: 44px;
   width: 100%;
   padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
 }
-button {
-  min-height: 44px;
+.base-button {
   margin: 12px 0;
-  padding: 8px 20px;
 }
 p[role='alert'] {
-  color: #b93e3e;
+  color: var(--danger);
 }
 </style>

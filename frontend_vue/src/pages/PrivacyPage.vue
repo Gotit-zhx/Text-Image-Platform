@@ -87,7 +87,8 @@ select {
   min-height: 44px;
   padding: 8px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: white;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
 }
 </style>

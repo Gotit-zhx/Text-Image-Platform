@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import BaseButton from './ui/BaseButton.vue'
 import type { LoginUser } from '../types'
 import { emailActionApi, deactivateApi, changePasswordApi } from '../api/auth'
 const props = defineProps<{ user: LoginUser | null; emailAvailable: boolean }>()
@@ -60,7 +61,7 @@ const deactivate = () =>
     <p v-if="!user">请先登录后管理账号。</p>
     <template v-else>
       <p>{{ user.email }} · {{ user.emailVerified ? '已验证' : '待验证' }}</p>
-      <button v-if="!user.emailVerified && emailAvailable" :disabled="pending" @click="verify">重发邮箱验证</button>
+      <BaseButton v-if="!user.emailVerified && emailAvailable" :pending="pending" @click="verify">重发邮箱验证</BaseButton>
       <p v-if="!user.emailVerified && !emailAvailable" class="muted">邮件服务暂未启用，请联系站点管理员验证邮箱。</p>
       <form @submit.prevent="change">
         <h2>修改密码</h2>
@@ -81,7 +82,7 @@ const deactivate = () =>
             autocomplete="new-password"
             required
         /></label>
-        <button :disabled="pending">更新密码</button>
+        <BaseButton type="submit" variant="primary" :pending="pending">更新密码</BaseButton>
       </form>
       <details>
         <summary>注销账号</summary>
@@ -95,7 +96,7 @@ const deactivate = () =>
               required
           /></label>
           <label>输入“注销百草园账号”确认<input v-model="confirmation" required /></label>
-          <button :disabled="pending || confirmation !== '注销百草园账号'">确认注销账号</button>
+          <BaseButton type="submit" variant="danger" :pending="pending" :disabled="confirmation !== '注销百草园账号'">确认注销账号</BaseButton>
         </form>
       </details>
     </template>
@@ -108,8 +109,9 @@ const deactivate = () =>
   max-width: 640px;
   margin: 24px auto;
   padding: 24px;
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 label {
   display: block;
@@ -120,10 +122,10 @@ input {
   min-height: 44px;
   width: 100%;
   padding: 10px;
-}
-button {
-  min-height: 44px;
-  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
 }
 form,
 details {
@@ -131,9 +133,9 @@ details {
 }
 summary {
   cursor: pointer;
-  color: #b93e3e;
+  color: var(--danger);
 }
 p[role='alert'] {
-  color: #b93e3e;
+  color: var(--danger);
 }
 </style>

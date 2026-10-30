@@ -38,8 +38,10 @@ watch(()=>props.kind,()=>{
 onBeforeUnmount(()=>{version++;controller?.abort()})
 </script>
 <template>
-  <el-card shadow="never">
-    <h2>{{ kind === 'reports' ? '举报受理' : '申诉复核' }}</h2>
+  <el-card shadow="never" class="case-panel">
+    <header class="head">
+      <h2>{{ kind === 'reports' ? '举报受理' : '申诉复核' }}</h2>
+      <div class="filters">
     <el-select v-model="status" :aria-label="kind === 'reports' ? '举报状态' : '申诉状态'" style="width:160px" @change="page=1;load()">
       <el-option label="待处理" value="open" />
       <el-option label="已处置" value="resolved" />
@@ -47,6 +49,8 @@ onBeforeUnmount(()=>{version++;controller?.abort()})
       <el-option label="全部" value="" />
     </el-select>
     <el-button @click="load">刷新</el-button>
+      </div>
+    </header>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-table v-loading="pending" :data="items" :aria-busy="pending">
       <el-table-column prop="id" label="ID" width="70" />
@@ -62,7 +66,7 @@ onBeforeUnmount(()=>{version++;controller?.abort()})
         </template>
       </el-table-column>
     </el-table>
-    <el-pagination layout="total,prev,pager,next" :total="total" :page-size="20" :current-page="page" @current-change="(value:number)=>{page=value;load()}" />
+    <el-pagination class="pager" layout="total,prev,pager,next" :background="true" :total="total" :page-size="20" :current-page="page" @current-change="(value:number)=>{page=value;load()}" />
     <el-dialog :model-value="!!selected" title="上下文与处置" width="min(700px,94vw)" @close="selected=undefined">
       <template v-if="selected">
         <p>{{ selected.reason }} {{ selected.description }}</p>
@@ -102,4 +106,14 @@ onBeforeUnmount(()=>{version++;controller?.abort()})
     </el-dialog>
   </el-card>
 </template>
-<style scoped>.case-content{max-height:320px;overflow:auto;border:1px solid var(--border);padding:16px}.case-content :deep(img){max-width:100%;height:auto}label{display:block;margin:16px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:16px}.el-table{margin:20px 0}</style>
+<style scoped>
+.case-panel :deep(.el-card__body) { padding: 16px; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pager { justify-content: flex-end; flex-wrap: wrap; white-space: normal; margin-top: 12px; }
+.case-content { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 16px; }
+.case-content :deep(img) { max-width: 100%; height: auto; }
+label { display: block; margin: 16px 0; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); padding: 16px; }
+</style>

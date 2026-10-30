@@ -237,7 +237,7 @@ nav {
   color: var(--text);
 }
 .nav-item.active {
-  background: #fff0ed;
+  background: var(--accent-soft);
   color: var(--accent-hover);
   font-weight: 650;
 }

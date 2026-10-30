@@ -346,7 +346,7 @@ textarea {
 }
 .sort select {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   min-height: 36px;
   background: white;
   padding: 4px 8px;

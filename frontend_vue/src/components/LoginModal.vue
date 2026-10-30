@@ -56,12 +56,14 @@ const handlePasswordChange = (value: unknown) => {
 		@update:model-value="(value:boolean) => { if (!value) emit('close') }"
 	>
 		<div class="login-modal">
-      <div v-if="recovery && emailAvailable">
+      <div v-if="recovery && emailAvailable" class="recovery-panel">
         <el-input v-model="recoveryEmail" type="email" aria-label="邮箱" placeholder="注册邮箱" />
-        <el-button :loading="recoveryPending" @click="requestEmail('reset')">申请重置密码</el-button>
-        <el-button :disabled="recoveryPending" @click="requestEmail('verify')">重发验证邮件</el-button>
-        <p role="status">{{ recoveryMessage }}</p>
-        <el-button link @click="recovery = false">返回登录</el-button>
+        <div class="recovery-actions">
+          <el-button :loading="recoveryPending" @click="requestEmail('reset')">申请重置密码</el-button>
+          <el-button :disabled="recoveryPending" @click="requestEmail('verify')">重发验证邮件</el-button>
+        </div>
+        <p v-if="recoveryMessage" role="status">{{ recoveryMessage }}</p>
+        <el-button link type="primary" @click="recovery = false">返回登录</el-button>
       </div>
       <div v-else>
 
@@ -100,14 +102,6 @@ const handlePasswordChange = (value: unknown) => {
 	padding: 4px 8px;
 }
 
-.login-title {
-	margin: 0 0 18px;
-	text-align: center;
-	font-size: 24px;
-	font-weight: 700;
-	color: #222c3f;
-}
-
 .login-input {
 	width: 100%;
 	margin-bottom: 10px;
@@ -123,12 +117,20 @@ const handlePasswordChange = (value: unknown) => {
 	display: flex;
 	justify-content: space-between;
 }
-
-:deep(.auth-dialog .el-dialog) {
-	border-radius: 12px;
+.recovery-panel {
+  display: grid;
+  gap: 12px;
+}
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.recovery-actions .el-button {
+  margin: 0;
 }
 
-:deep(.auth-dialog .el-dialog__body) {
-	padding: 16px 22px 20px;
+p[role='alert'] {
+  color: var(--danger);
 }
 </style>

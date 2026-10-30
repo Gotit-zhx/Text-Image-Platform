@@ -553,7 +553,7 @@ footer {
 }
 .recovery {
   padding: 12px;
-  background: #fff4df;
+  background: var(--warning-soft);
   border-radius: 10px;
 }
 .editor-page :deep(.ql-container) {
@@ -567,6 +567,41 @@ footer {
   background: var(--surface);
   border-color: var(--border);
   border-radius: 10px 10px 0 0;
+  font-family: inherit;
+}
+.editor-page :deep(.ql-toolbar .ql-picker) {
+  color: var(--text);
+}
+.editor-page :deep(.ql-toolbar .ql-stroke),
+.editor-page :deep(.ql-toolbar .ql-stroke-miter) {
+  stroke: currentColor;
+}
+.editor-page :deep(.ql-toolbar .ql-fill) {
+  fill: currentColor;
+}
+.editor-page :deep(.ql-toolbar :is(button, .ql-picker-label, .ql-picker-item):is(:hover, :focus, .ql-active, .ql-selected)),
+.editor-page :deep(.ql-snow a) {
+  color: var(--accent-hover);
+}
+.editor-page :deep(.ql-toolbar :is(button, .ql-picker-label, .ql-picker-item):is(:hover, :focus, .ql-active, .ql-selected) :is(.ql-stroke, .ql-stroke-miter)) {
+  stroke: currentColor;
+}
+.editor-page :deep(.ql-toolbar :is(button, .ql-picker-label, .ql-picker-item):is(:hover, :focus, .ql-active, .ql-selected) .ql-fill) {
+  fill: currentColor;
+}
+.editor-page :deep(.ql-toolbar .ql-picker-options),
+.editor-page :deep(.ql-tooltip) {
+  border-color: var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+}
+.editor-page :deep(.ql-toolbar .ql-picker.ql-expanded .ql-picker-label) {
+  border-color: var(--border);
+  color: var(--accent-hover);
+}
+.editor-page :deep(.ql-editor.ql-blank::before) {
+  color: var(--muted);
 }
 .editor-page :deep(.ql-editor) {
   min-height: 280px;

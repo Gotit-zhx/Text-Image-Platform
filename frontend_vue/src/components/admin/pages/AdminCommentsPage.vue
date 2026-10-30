@@ -102,9 +102,11 @@ const handleReset = () => {
 </template>
 
 <style scoped>
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.panel :deep(.el-card__body) { padding: 16px; }
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
 .title { font-size: 16px; font-weight: 700; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filters :deep(.el-button + .el-button) { margin-left: 0; }
 .pager { display: flex; justify-content: flex-end; margin-top: 12px; }
 </style>

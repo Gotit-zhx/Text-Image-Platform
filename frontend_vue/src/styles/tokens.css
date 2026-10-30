@@ -10,7 +10,14 @@
   --success: #27805d;
   --warning: #a3630c;
   --danger: #b93e3e;
+  --accent-soft: #fff0ed;
+  --warning-soft: #fff4df;
+  --border-hover: #d6cfc7;
+  --media-placeholder: #eeeae4;
+  --avatar-bg: #eee7dc;
+  --avatar-text: #685d51;
   --radius: 12px;
+  --radius-control: 10px;
   --sidebar: 224px;
   --space: 4px;
   --duration: 180ms;
@@ -25,15 +32,63 @@
   --el-color-warning: var(--warning);
   --el-color-danger: var(--danger);
   --el-color-error: var(--danger);
+  --el-color-info: var(--muted);
+  --el-color-success-dark-2: color-mix(in srgb, var(--success), black 20%);
+  --el-color-warning-dark-2: color-mix(in srgb, var(--warning), black 20%);
+  --el-color-danger-dark-2: color-mix(in srgb, var(--danger), black 20%);
+  --el-color-error-dark-2: var(--el-color-danger-dark-2);
+  --el-color-info-dark-2: color-mix(in srgb, var(--muted), black 20%);
+  --el-color-success-light-3: color-mix(in srgb, var(--success), white 30%);
+  --el-color-success-light-5: color-mix(in srgb, var(--success), white 50%);
+  --el-color-success-light-7: color-mix(in srgb, var(--success), white 70%);
+  --el-color-success-light-8: color-mix(in srgb, var(--success), white 80%);
+  --el-color-success-light-9: color-mix(in srgb, var(--success), white 90%);
+  --el-color-warning-light-3: color-mix(in srgb, var(--warning), white 30%);
+  --el-color-warning-light-5: color-mix(in srgb, var(--warning), white 50%);
+  --el-color-warning-light-7: color-mix(in srgb, var(--warning), white 70%);
+  --el-color-warning-light-8: color-mix(in srgb, var(--warning), white 80%);
+  --el-color-warning-light-9: color-mix(in srgb, var(--warning), white 90%);
+  --el-color-danger-light-3: color-mix(in srgb, var(--danger), white 30%);
+  --el-color-danger-light-5: color-mix(in srgb, var(--danger), white 50%);
+  --el-color-danger-light-7: color-mix(in srgb, var(--danger), white 70%);
+  --el-color-danger-light-8: color-mix(in srgb, var(--danger), white 80%);
+  --el-color-danger-light-9: color-mix(in srgb, var(--danger), white 90%);
+  --el-color-error-light-3: color-mix(in srgb, var(--danger), white 30%);
+  --el-color-error-light-5: color-mix(in srgb, var(--danger), white 50%);
+  --el-color-error-light-7: color-mix(in srgb, var(--danger), white 70%);
+  --el-color-error-light-8: color-mix(in srgb, var(--danger), white 80%);
+  --el-color-error-light-9: color-mix(in srgb, var(--danger), white 90%);
+  --el-color-info-light-3: color-mix(in srgb, var(--muted), white 30%);
+  --el-color-info-light-5: color-mix(in srgb, var(--muted), white 50%);
+  --el-color-info-light-7: color-mix(in srgb, var(--muted), white 70%);
+  --el-color-info-light-8: color-mix(in srgb, var(--muted), white 80%);
+  --el-color-info-light-9: color-mix(in srgb, var(--muted), white 90%);
   --el-text-color-primary: var(--text);
   --el-text-color-regular: var(--text);
   --el-text-color-secondary: var(--muted);
   --el-border-color: var(--border);
   --el-border-color-light: var(--border);
   --el-border-color-lighter: var(--border);
+  --el-border-color-hover: var(--border-hover);
+  --el-border-color-dark: var(--border-hover);
+  --el-border-color-extra-light: var(--border);
+  --el-text-color-placeholder: var(--muted);
+  --el-text-color-disabled: color-mix(in srgb, var(--muted), white 30%);
+  --el-fill-color: var(--media-placeholder);
   --el-fill-color-light: var(--bg);
+  --el-fill-color-lighter: var(--bg);
+  --el-fill-color-extra-light: var(--bg);
+  --el-fill-color-blank: var(--surface);
+  --el-disabled-bg-color: var(--bg);
+  --el-disabled-border-color: var(--border);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--surface);
   --el-menu-hover-bg-color: var(--bg);
-  --el-border-radius-base: 10px;
+  --el-border-radius-base: var(--radius-control);
+  --el-border-radius-small: var(--radius-control);
+  --el-dialog-border-radius: var(--radius);
+  --el-messagebox-border-radius: var(--radius);
   --el-font-family: inherit;
 }
 * {
@@ -100,6 +155,24 @@ input,
 textarea {
   accent-color: var(--accent);
 }
+input[type='file'] {
+  max-width: 100%;
+  color: var(--muted);
+}
+input[type='file']::file-selector-button {
+  min-height: 44px;
+  margin-right: 12px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+input[type='file']:not(:disabled)::file-selector-button:hover {
+  background: var(--bg);
+}
 .tag {
   font-size: 12px;
   padding: 3px 9px;
@@ -133,6 +206,26 @@ textarea {
 }
 .el-dialog {
   max-width: 94vw;
+  border-radius: var(--radius);
+}
+.auth-dialog .el-input,
+.auth-dialog .el-button:not(.is-link),
+.admin-login-card .el-input,
+.admin-login-card .el-button:not(.is-link) {
+  min-height: 44px;
+}
+.el-card {
+  border-radius: var(--radius);
+}
+.el-input__inner:focus-visible {
+  outline: none;
+}
+.el-input__wrapper:has(.el-input__inner:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.el-dialog__footer > .base-button + .base-button {
+  margin-left: 12px;
 }
 .el-overlay-dialog {
   padding: 0 4px;

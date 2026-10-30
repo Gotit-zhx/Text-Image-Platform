@@ -37,6 +37,7 @@ const handleConfirmPasswordChange = (value: unknown) => {
 <template>
 	<el-dialog
 		:model-value="visible"
+		title="邮箱注册"
 		width="min(420px, 94vw)"
 		:show-close="false"
 		append-to-body
@@ -45,12 +46,11 @@ const handleConfirmPasswordChange = (value: unknown) => {
 		@update:model-value="(value:boolean) => { if (!value) emit('close') }"
 	>
 		<div class="login-modal">
-			<h3 class="login-title">邮箱注册</h3>
-
 			<el-input
 				:model-value="email"
 				class="login-input"
 				placeholder="请输入邮箱"
+        aria-label="邮箱" autocomplete="email" type="email"
 				@update:model-value="handleEmailChange"
 			/>
 			<el-input
@@ -59,6 +59,7 @@ const handleConfirmPasswordChange = (value: unknown) => {
 				type="password"
 				show-password
 				placeholder="请输入密码"
+        aria-label="密码" autocomplete="new-password"
 				@update:model-value="handlePasswordChange"
 			/>
 			<el-input
@@ -67,6 +68,7 @@ const handleConfirmPasswordChange = (value: unknown) => {
 				type="password"
 				show-password
 				placeholder="请确认密码"
+        aria-label="确认密码" autocomplete="new-password"
 				@update:model-value="handleConfirmPasswordChange"
 			/>
 
@@ -88,14 +90,6 @@ const handleConfirmPasswordChange = (value: unknown) => {
 .login-modal {
 	width: 100%;
 	padding: 4px 8px;
-}
-
-.login-title {
-	margin: 0 0 18px;
-	text-align: center;
-	font-size: 24px;
-	font-weight: 700;
-	color: #222c3f;
 }
 
 .login-input {
@@ -123,11 +117,7 @@ const handleConfirmPasswordChange = (value: unknown) => {
 	justify-content: center;
 }
 
-:deep(.auth-dialog .el-dialog) {
-	border-radius: 12px;
-}
-
-:deep(.auth-dialog .el-dialog__body) {
-	padding: 16px 22px 20px;
+p[role='alert'] {
+  color: var(--danger);
 }
 </style>

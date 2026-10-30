@@ -167,7 +167,9 @@ textarea {
   width: 100%;
   min-height: 100px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
   margin: 12px 0;
   padding: 10px;
 }

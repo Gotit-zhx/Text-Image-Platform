@@ -112,7 +112,7 @@ const author = () =>
   transition: border-color var(--duration);
 }
 .post-card:hover {
-  border-color: #d6cfc7;
+  border-color: var(--border-hover);
 }
 .content-link {
   display: block;
@@ -120,7 +120,7 @@ const author = () =>
 .cover {
   position: relative;
   aspect-ratio: 4/5;
-  background: #eeeae4;
+  background: var(--media-placeholder);
   overflow: hidden;
 }
 .cover img {
@@ -219,7 +219,7 @@ footer {
   color: var(--accent-hover);
 }
 .selected svg {
-  fill: #ed5b5618;
+  fill: var(--accent-soft);
 }
 .timeline {
   padding: 20px;

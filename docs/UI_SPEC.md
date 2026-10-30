@@ -1,18 +1,20 @@
 # 百草园 UI 实施规范
 
-2026-10-22，已随本轮实现统一 tokens/AppShell、发现卡片、关注时间线和独立页面。API 与业务规则见 [API 契约](API_CONTRACT.md)，桌面端截图及项目状态见[项目首页](../README.md)。内部实施与人工验收记录保留在本地，不随仓库发布。
+2026-10-30，已统一 tokens/AppShell、社区页面、认证表单、富文本工具栏与管理后台的视觉基础。API 与业务规则见 [API 契约](API_CONTRACT.md)，桌面端截图及项目状态见[项目首页](../README.md)。内部实施与人工验收记录保留在本地，不随仓库发布。
 
 ## 设计变量
 
-统一 CSS variables：--bg:#faf9f6，--surface:#fff，--text:#242424，--muted:#756f69，--border:#e9e5df，--accent:#c94440，--accent-hover:#b43733，--success:#27805d，--warning:#a3630c，--danger:#b93e3e。主色用于发布、选中导航与关键操作，主色与白色文字对比度4.79:1，与暖白背景4.55:1；正文和辅助文本另用深灰色。字体 system-ui/PingFang SC/Microsoft YaHei；body16px/1.65，meta13px/1.5，标题24px/1.35，卡片标题16px/1.5。间距4/8/12/16/24/32；卡片圆角12、控件10、胶囊999；阴影仅用于浮层；z-index：导航20、遮罩50、详情60、查看器70、Toast100。过渡180ms，prefers-reduced-motion 关闭非必要动画。focus-visible 为3px清晰轮廓，不能仅靠颜色表达状态。
+统一 CSS variables：--bg:#faf9f6，--surface:#fff，--text:#242424，--muted:#756f69，--border:#e9e5df，--accent:#c94440，--accent-hover:#b43733，--success:#27805d，--warning:#a3630c，--danger:#b93e3e。选中浅底、警告浅底、媒体占位、头像回退及边框 hover 也由 tokens 管理。主色用于发布、选中导航与关键操作，主色与白色文字对比度4.79:1，与暖白背景4.55:1；正文和辅助文本另用深灰色。字体 system-ui/PingFang SC/Microsoft YaHei；body15px/1.65，阅读正文16px/1.85，辅助文字12–14px，页面标题26px/1.35（窄屏22px），卡片标题16px/1.5。间距4/8/12/16/24/32；卡片圆角12、控件10、胶囊999；卡片无常驻阴影，阴影仅用于浮层；z-index：导航20、遮罩50、详情60、查看器70、Toast100。过渡180ms，prefers-reduced-motion 关闭非必要动画。focus-visible 为3px清晰轮廓，复合输入框在外层显示圆角焦点，不能仅靠颜色表达状态。
 
 ## 页面和组件边界
 
 AppShell 负责导航、顶搜、账号入口与 main landmark，不保存帖子副本。页面负责 query、请求、loading/error/分页与取消；业务 composable 以稳定 ID 更新实体与服务端权威计数。展示组件只接收 props 并发出动作；同一互动入口共用 pending key（entity+action），失败保留原状态。禁止在卡片内部另建 API 数据状态。
 
-基础组件：BaseButton/IconButton（loading+disabled+aria-label）、Avatar（URL失败→昵称首字，无空图）、FormField（label/错误关联）、Tag、Skeleton、EmptyState、ErrorState（真实重试）、ConfirmDialog、Toast。弹窗优先原生 dialog 或经测试的 Element Plus 对话框，不重复引入组件体系。后台保留 Element Plus 独立导航，复用社区的背景、文字、边框、主色与语义色 tokens；Element Plus 的主色明暗阶同步映射，按钮 hover/focus 不回退为默认蓝色。
+基础组件：BaseButton/IconButton（loading+disabled+aria-label）、Avatar（URL失败→昵称首字，无空图）、FormField（label/错误关联）、Tag、Skeleton、EmptyState、ErrorState（真实重试）、ConfirmDialog、Toast。弹窗优先原生 dialog 或经测试的 Element Plus 对话框，不重复引入组件体系。后台保留 Element Plus 独立导航，复用社区的背景、文字、边框、主色与语义色 tokens；Element Plus 的主色及成功/警告/错误/信息色明暗阶、禁用态、输入和面板底色同步映射。社区及认证入口控件最小高度44px，后台密集工具栏可用32–36px；原生文件选择按钮沿用相同字体、边框与控件圆角。按钮禁用时不触发 hover 变色，确认弹窗按钮间隔12px。
 
 AppShell：桌面≥1280 固定224px侧栏，品牌图形用简洁叶形SVG+百草园字标；发现/关注/通知/收藏/主页/设置，发布主按钮，底部账号。768–1279收72px图标栏，aria-label和可见 tooltip；<768取消侧栏，顶搜和标题，底栏发现/关注/发布/通知/我的，安全区 env(safe-area-inset-bottom)。所有入口有实际路由或明确登录提示，无假统计。
+
+后台列表面板统一16px内边距、16px加粗标题与8px筛选控件间隔，避免卡片外层和内容区重复留白。≤1023px时表格取消右侧操作列吸附，保留表格内部横向滚动；<768px时作品详情抽屉占满宽度。处置弹窗的内容和表单间隔16px，危险操作保留明确确认。
 
 ## 路由和真实数据
 
@@ -26,7 +28,7 @@ AppShell：桌面≥1280 固定224px侧栏，品牌图形用简洁叶形SVG+百�
 | /bookmarks | 本人私有分页 | 登录引导；下架项不泄露正文 |
 | /publish、/edit/:id、/drafts | EditorPage、DraftsPage | 上传/保存/发布 pending；冲突、失败保留输入；离开确认 |
 | /notifications | NotificationPage，分类+已读+定位 | 空消息；不可用目标保留事件说明 |
-| /settings/profile、/account、/privacy | SettingsPage，资料/密码/邮箱/注销/关系管理 | 注销密码和独立明确确认；服务器成功才退出 |
+| /settings/profile、/settings/account、/settings/privacy | SettingsPage，资料/密码/邮箱/注销/关系管理 | 注销密码和独立明确确认；服务器成功才退出 |
 | /auth/verify、/auth/reset | 邮件 token 落地页 | pending/有效/过期/已使用；可返回重新申请 |
 | /admin/... | 独立 AdminConsole，审核/举报/申诉/用户/审计 | 鉴权完成再判断；无权限显示403且无写按钮 |
 
@@ -46,7 +48,7 @@ AppShell：桌面≥1280 固定224px侧栏，品牌图形用简洁叶形SVG+百�
 
 ## 创作、讨论与消息
 
-保留 Quill 富文本；标题、正文、标签、媒体托盘、保存状态/草稿、发布区域层级明确。媒体项有缩略/进度/排序/移除/取消/重试；仍上传或失败禁止发布。保存请求串行/版本化，状态显示“保存中/已保存时间/保存失败”；输入改变后 pending 不得覆盖更晚输入；同一发布 requestKey 重试不重复，服务器确认才清空跳转。本地恢复按账户隔离且退出清理，仅为失败备份。
+保留 Quill 富文本；工具栏文字、图标选中态、下拉框、提示浮层与占位文字沿用主题 tokens，不覆盖用户主动设置的正文颜色和字体。标题、正文、标签、媒体托盘、保存状态/草稿、发布区域层级明确。媒体项有缩略/进度/排序/移除/取消/重试；仍上传或失败禁止发布。保存请求串行/版本化，状态显示“保存中/已保存时间/保存失败”；输入改变后 pending 不得覆盖更晚输入；同一发布 requestKey 重试不重复，服务器确认才清空跳转。本地恢复按账户隔离且退出清理，仅为失败备份。
 
 评论：最新/热门 tabs、总数取服务端；根评论分页、两级回复、@对象与取消回复；“展开更多回复”按根独立分页。失败保留输入；会话过期弹登录并保留输入，成功后由用户再点发送。删除父节点展示不可用占位并保留合法回复，旧正文不可见。定位 commentId 时按实体/根读取，不能只在第一页查找。
 
