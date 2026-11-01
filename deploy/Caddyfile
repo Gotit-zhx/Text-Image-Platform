@@ -20,6 +20,10 @@
 		reverse_proxy app:8000 {
 			# This header is overwritten here, never taken from a public client.
 			header_up X-Real-IP {remote_host}
+			# The public Caddy terminates TLS before forwarding to this internal
+			# Caddy instance. Keep Django's HTTPS redirect and secure-cookie
+			# checks aligned with the original public request.
+			header_up X-Forwarded-Proto https
 		}
 	}
 	handle_path /static/* {
