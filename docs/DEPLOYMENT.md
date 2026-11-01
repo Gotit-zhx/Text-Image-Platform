@@ -42,6 +42,7 @@ docker compose --env-file .env.compose exec app python manage.py createsuperuser
 PUBLIC_ORIGIN=https://demo.example.com
 DJANGO_ALLOWED_HOSTS=demo.example.com,localhost
 SITE_ADDRESS=demo.example.com
+UPSTREAM_SCHEME=https
 BIND_ADDRESS=0.0.0.0
 HTTP_PORT=80
 HTTPS_PORT=443
@@ -57,7 +58,7 @@ curl --fail https://demo.example.com/healthz
 curl --fail https://demo.example.com/api/auth/config
 ```
 
-HTTPS 配置启用 Secure Cookie、HTTPS 重定向及 HSTS。生产配置拒绝 DEBUG、明显弱密钥、通配 hosts、公网 HTTP 和无 SMTP 的开放注册。不要通过关闭这些检查解决部署错误，也不要直接公开 app 容器端口：客户端地址与 HTTPS 判断依赖受信任的 Caddy 代理。
+HTTPS 配置启用 Secure Cookie、HTTPS 重定向及 HSTS。`UPSTREAM_SCHEME=https` 用于明确告诉内层 Caddy 当前是公网 HTTPS 部署，避免上游代理未传递协议头时形成重定向循环。生产配置拒绝 DEBUG、明显弱密钥、通配 hosts、公网 HTTP 和无 SMTP 的开放注册。不要通过关闭这些检查解决部署错误，也不要直接公开 app 容器端口。
 
 生产密码保存在 `.secrets/` 文件中；初始化脚本会生成 Django 密钥，重复执行不会覆盖。目录权限为 `700`；文件为 `444`，使 Linux Compose 的文件挂载可由非 root 容器用户读取。不要放宽目录权限，不要提交或展示文件内容。
 

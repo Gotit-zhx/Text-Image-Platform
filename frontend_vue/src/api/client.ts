@@ -21,6 +21,7 @@ export const apiRequest = async <T>(path: string, init: RequestInit = {}): Promi
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
       const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
         credentials: 'include',
+        cache: 'no-store',
         signal: controller.signal
       })
       const envelope = await response.json().catch(() => null)
@@ -32,6 +33,7 @@ export const apiRequest = async <T>(path: string, init: RequestInit = {}): Promi
       ...init,
       method,
       headers,
+      cache: 'no-store',
       credentials: 'include',
       signal: controller.signal
     })

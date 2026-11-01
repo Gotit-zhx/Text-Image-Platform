@@ -20,9 +20,9 @@
 		reverse_proxy app:8000 {
 			# This header is overwritten here, never taken from a public client.
 			header_up X-Real-IP {remote_host}
-			# Preserve the scheme from an upstream TLS terminator so Django can
-			# distinguish HTTPS deployments from local HTTP previews.
-			header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+			# Set the scheme explicitly for the deployment mode. Public deployments
+			# use https even when another proxy terminates TLS before this Caddy.
+			header_up X-Forwarded-Proto {$UPSTREAM_SCHEME}
 		}
 	}
 	handle_path /static/* {
